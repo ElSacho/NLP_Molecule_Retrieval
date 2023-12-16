@@ -18,9 +18,9 @@ def contrastive_loss(v1, v2):
 
 model_name = 'distilbert-base-uncased'
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-gt = np.load("./data/token_embedding_dict.npy", allow_pickle=True)[()]
-val_dataset = GraphTextDataset(root='./data/', gt=gt, split='val', tokenizer=tokenizer)
-train_dataset = GraphTextDataset(root='./data/', gt=gt, split='train', tokenizer=tokenizer)
+gt = np.load("Public/data/token_embedding_dict.npy", allow_pickle=True)[()]
+val_dataset = GraphTextDataset(root='Public//data/', gt=gt, split='val', tokenizer=tokenizer)
+train_dataset = GraphTextDataset(root='Public//data/', gt=gt, split='train', tokenizer=tokenizer)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -44,7 +44,7 @@ losses = []
 count_iter = 0
 time1 = time.time()
 printEvery = 50
-best_validation_loss = 1000000
+best_validation_loss = 1_000_000
 
 for i in range(nb_epochs):
     print('-----EPOCH{}-----'.format(i+1))
