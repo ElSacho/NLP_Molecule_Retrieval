@@ -5,6 +5,7 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool
 from transformers import AutoModel
 
+from transformers import AutoModel, AutoTokenizer
 
 import torch
 import torch.nn as nn
@@ -52,34 +53,6 @@ class GraphEncoderAttentionWithNeighborAttentionResidual(nn.Module):
 
         return x
     
-# class TextEncoder(nn.Module):
-#     def __init__(self, model_name):
-#         super(TextEncoder, self).__init__()
-#         self.bert = AutoModel.from_pretrained(model_name)
-#         # self.bert = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-        
-#     def forward(self, input_ids, attention_mask):
-#         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-#         #print(encoded_text.last_hidden_state.size())
-#         return encoded_text.last_hidden_state[:,0,:]
-    
-# class Model(nn.Module):
-#     def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
-#         super(Model, self).__init__()
-#         self.graph_encoder = GraphEncoderAttentionWithNeighborAttentionResidual(num_node_features, nout, nhid, graph_hidden_channels)
-#         self.text_encoder = TextEncoder(model_name)
-        
-#     def forward(self, graph_batch, input_ids, attention_mask):
-#         graph_encoded = self.graph_encoder(graph_batch)
-#         text_encoded = self.text_encoder(input_ids, attention_mask)
-#         return graph_encoded, text_encoded
-    
-#     def get_text_encoder(self):
-#         return self.text_encoder
-    
-#     def get_graph_encoder(self):
-#         return self.graph_encoder
-
 class TextEncoder(nn.Module):
     def __init__(self, model_name, output_dim=256):
         super(TextEncoder, self).__init__()
@@ -110,48 +83,3 @@ class Model(nn.Module):
     
     def get_graph_encoder(self):
         return self.graph_encoder
-
-# class TextEncoder(nn.Module):
-#     def __init__(self, model_name, embedding_dim=768):
-#         super(TextEncoder, self).__init__()
-#         # Chargement du modèle BERT (ou tout autre modèle transformer) pré-entraîné
-#         self.bert = AutoModel.from_pretrained(model_name)
-
-#         # Couche linéaire optionnelle pour ajuster la dimension de l'embedding
-#         self.linear = nn.Linear(self.bert.config.hidden_size, embedding_dim) if self.bert.config.hidden_size != embedding_dim else nn.Identity()
-
-#         # Normalisation des couches pour stabiliser l'apprentissage
-#         self.norm = nn.LayerNorm(embedding_dim)
-
-#     def forward(self, input_ids, attention_mask):
-#         # Extraction des features du modèle BERT
-#         with torch.no_grad():  # Assurez-vous de ne pas calculer de gradients ici
-#             outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        
-#         # Utilisation de la représentation du token [CLS] pour l'embedding
-#         cls_embedding = outputs.last_hidden_state[:, 0, :]
-
-#         # Passage à travers la couche linéaire pour ajuster la dimension
-#         cls_embedding = self.linear(cls_embedding)
-
-#         # Normalisation de l'embedding
-#         normalized_embedding = self.norm(cls_embedding)
-
-#         return normalized_embedding
-    
-# class Model(nn.Module):
-#     def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
-#         super(Model, self).__init__()
-#         self.graph_encoder = GraphEncoderAttentionWithNeighborAttentionResidual(num_node_features, nout, nhid, graph_hidden_channels)
-#         self.text_encoder = TextEncoder(model_name, embedding_dim=nout)
-        
-#     def forward(self, graph_batch, input_ids, attention_mask):
-#         graph_encoded = self.graph_encoder(graph_batch)
-#         text_encoded = self.text_encoder(input_ids, attention_mask)
-#         return graph_encoded, text_encoded
-    
-#     def get_text_encoder(self):
-#         return self.text_encoder
-    
-#     def get_graph_encoder(self):
-#         return self.graph_encoder

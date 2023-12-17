@@ -1,13 +1,14 @@
+import os 
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 from dataloader import GraphTextDataset, GraphDataset, TextDataset
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
-from attentionGNNModel import Model
+from Model import Model
 import numpy as np
 from transformers import AutoTokenizer
 import torch
 from torch import optim
 import time
-import os
 import pandas as pd
 from tqdm import tqdm
 
@@ -17,20 +18,9 @@ def contrastive_loss(v1, v2):
   labels = torch.arange(logits.shape[0], device=v1.device)
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
-# model_name = str(input("Please write the model name : "))
-model_name = 'distilbert-base-uncased'
-# model_name = 'microsoft/MiniLM-L12-H384-uncased'
-# model_name = 'microsoft/MiniLM-L6-H384-uncased'
-# model_name = 'allenai/scibert_scivocab_uncased'
-
+# model_name = 'distilbert-base-uncased'
+model_name = 'allenai/scibert_scivocab_uncased'
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-# except:
-#     model_name = 'distilbert-base-uncased'
-#     tokenizer = AutoTokenizer.from_pretrained(model_name)
-#     print("Loaded distilBert", end='\n\n')
-# model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-# tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
-
 gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
 val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
 train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=tokenizer)

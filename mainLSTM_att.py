@@ -1,7 +1,7 @@
 from dataloader import GraphTextDataset, GraphDataset, TextDataset
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
-from attentionGNNModel import Model
+from attentionGNNModel import Model, SmilesTokenizer
 import numpy as np
 from transformers import AutoTokenizer
 import torch
@@ -17,20 +17,10 @@ def contrastive_loss(v1, v2):
   labels = torch.arange(logits.shape[0], device=v1.device)
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
-# model_name = str(input("Please write the model name : "))
 model_name = 'distilbert-base-uncased'
-# model_name = 'microsoft/MiniLM-L12-H384-uncased'
-# model_name = 'microsoft/MiniLM-L6-H384-uncased'
 # model_name = 'allenai/scibert_scivocab_uncased'
-
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-# except:
-#     model_name = 'distilbert-base-uncased'
-#     tokenizer = AutoTokenizer.from_pretrained(model_name)
-#     print("Loaded distilBert", end='\n\n')
-# model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-# tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
-
+tokenizer = SmilesTokenizer(smiles_list)
 gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
 val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
 train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=tokenizer)
@@ -44,7 +34,7 @@ learning_rate = 2e-5
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-model = Model(model_name=model_name, num_node_features=300, nout=768, nhid=300, graph_hidden_channels=300) # nout = bert model hidden dim
+model = Model(model_name=model_name, num_node_features=300, nout=256, nhid=300, graph_hidden_channels=300) # nout = bert model hidden dim
 model.to(device)
 
 optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
@@ -59,23 +49,23 @@ time1 = time.time()
 printEvery = 50
 best_validation_loss = 1_000_000
 
-# checkpoint = torch.load('model_checkpoint.pt')
-# model.load_state_dict(checkpoint['model_state_dict'])
-# optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-torch.cuda.empty_cache() # test to liberate memory space
 for i in range(nb_epochs):
     print('-----EPOCH{}-----'.format(i+1))
     model.train()
     for batch in train_loader:
-        input_ids = batch.input_ids
-        batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
-        attention_mask = batch.attention_mask
-        batch.pop('attention_mask')
-        graph_batch = batch
-        
+        smiles = batch.smiles  # Supposons que vos données contiennent un champ 'smiles'
+        input_seqs = [tokenizer.encode(s) for s in smiles]
+        input_lengths = [len(seq) for seq in input_seqs]
+        input_seqs_padded = torch.nn.utils.rnn.pad_sequence([torch.tensor(seq) for seq in input_seqs],
+                                                            batch_first=True,
+                                                            padding_value=0)  # 0 est généralement utilisé pour le padding
+
+        # Supposons que 'graph_batch' est déjà préparé dans 'batch'
+        graph_batch = batch.graph_data  
+
         x_graph, x_text = model(graph_batch.to(device), 
-                                input_ids.to(device), 
-                                attention_mask.to(device))
+                                input_seqs_padded.to(device), 
+                                torch.tensor(input_lengths).to(device))
         current_loss = contrastive_loss(x_graph, x_text)   
         optimizer.zero_grad()
         current_loss.backward()

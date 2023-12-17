@@ -39,9 +39,12 @@ optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                                 betas=(0.9, 0.999),
                                 weight_decay=0.01)
 
+print('What model do you want to try ? : ' ,end='')
+model_path = str(input())
+
 print('loading best model...')
 # checkpoint = torch.load("model_attention3.pt", map_location=torch.device(device))
-checkpoint = torch.load("model_attention3.pt")
+checkpoint = torch.load(model_path)
 model.load_state_dict(checkpoint['model_state_dict'])
 model.eval()
 
