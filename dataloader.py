@@ -50,7 +50,7 @@ class GraphTextDataset(Dataset):
         for line in f: 
           if line != "\n":
             edge = *map(int, line.split()), 
-            edge_index.append(edge)
+            edge_index.append(edge)  # shape (2, n_edges)
           else:
             break
         next(f)
@@ -59,8 +59,8 @@ class GraphTextDataset(Dataset):
           if substruct_id in self.gt.keys():
             x.append(self.gt[substruct_id])
           else:
-            x.append(self.gt['UNK'])
-        return torch.LongTensor(edge_index).T, torch.FloatTensor(x)
+            x.append(self.gt['UNK']) 
+        return torch.LongTensor(edge_index).T, torch.FloatTensor(x) # shape tensor(x) : (n_nodes, 300) ou (n_nodes, len(self.gt[substruct_id])
 
     def process(self):
         i = 0        

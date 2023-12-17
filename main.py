@@ -18,14 +18,14 @@ def contrastive_loss(v1, v2):
 
 model_name = 'distilbert-base-uncased'
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-gt = np.load("Public/data/token_embedding_dict.npy", allow_pickle=True)[()]
-val_dataset = GraphTextDataset(root='Public//data/', gt=gt, split='val', tokenizer=tokenizer)
-train_dataset = GraphTextDataset(root='Public//data/', gt=gt, split='train', tokenizer=tokenizer)
+gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
+val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
+train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=tokenizer)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-nb_epochs = 5
-batch_size = 32
+nb_epochs = 1
+batch_size = 1
 learning_rate = 2e-5
 
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
@@ -51,15 +51,20 @@ for i in range(nb_epochs):
     model.train()
     for batch in train_loader:
         input_ids = batch.input_ids
-        batch.pop('input_ids')
+        batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately. 
         attention_mask = batch.attention_mask
         batch.pop('attention_mask')
         graph_batch = batch
-        
-        x_graph, x_text = model(graph_batch.to(device), 
-                                input_ids.to(device), 
-                                attention_mask.to(device))
-        current_loss = contrastive_loss(x_graph, x_text)   
+        try :
+            x_graph, x_text = model(graph_batch.to(device), 
+                                    input_ids.to(device), 
+                                    attention_mask.to(device))
+        except:
+            print('graph shape',type(graph_batch))
+            print("attention shape",attention_mask.shape)
+            print('inputs shape ',input_ids.shape)
+        current_loss = contrastive_loss(x_graph, x_text)  
+        print('loss : ',current_loss) 
         optimizer.zero_grad()
         current_loss.backward()
         optimizer.step()
@@ -72,7 +77,7 @@ for i in range(nb_epochs):
                                                                         time2 - time1, loss/printEvery))
             losses.append(loss)
             loss = 0 
-    model.eval()       
+    model.eval()
     val_loss = 0        
     for batch in val_loader:
         input_ids = batch.input_ids
@@ -89,7 +94,7 @@ for i in range(nb_epochs):
     print('-----EPOCH'+str(i+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)) )
     if best_validation_loss==val_loss:
         print('validation loss improoved saving checkpoint...')
-        save_path = os.path.join('./', 'model'+str(i)+'.pt')
+        save_path = os.path.join('./', 'model_main'+str(i)+'.pt')
         torch.save({
         'epoch': i,
         'model_state_dict': model.state_dict(),
@@ -108,8 +113,8 @@ model.eval()
 graph_model = model.get_graph_encoder()
 text_model = model.get_text_encoder()
 
-test_cids_dataset = GraphDataset(root='./data/', gt=gt, split='test_cids')
-test_text_dataset = TextDataset(file_path='./data/test_text.txt', tokenizer=tokenizer)
+test_cids_dataset = GraphDataset(root='data/', gt=gt, split='test_cids')
+test_text_dataset = TextDataset(file_path='data/test_text.txt', tokenizer=tokenizer)
 
 idx_to_cid = test_cids_dataset.get_idx_to_cid()
 
