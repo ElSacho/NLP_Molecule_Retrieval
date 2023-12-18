@@ -18,12 +18,15 @@ def contrastive_loss(v1, v2):
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
 # model_name = str(input("Please write the model name : "))
-# model_name = 'distilbert-base-uncased'
 # model_name = 'microsoft/MiniLM-L12-H384-uncased'
 # model_name = 'microsoft/MiniLM-L6-H384-uncased'
 model_name = 'allenai/scibert_scivocab_uncased'
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
+# except:
+#     model_name = 'distilbert-base-uncased'
+#     tokenizer = AutoTokenizer.from_pretrained(model_name)
+#     print("Loaded distilBert", end='\n\n')
 # model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
 # tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
 
@@ -34,6 +37,7 @@ train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=t
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 nb_epochs = 10
+# batch_size = int(input("Please write the batch_size : "))
 batch_size = 10
 learning_rate = 2e-5
 
@@ -46,6 +50,7 @@ model.to(device)
 optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                                 betas=(0.9, 0.999),
                                 weight_decay=0.01)
+# optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 
 epoch = 0
 loss = 0
@@ -55,9 +60,10 @@ time1 = time.time()
 printEvery = 50
 best_validation_loss = 1_000_000
 
-# checkpoint = torch.load('model_checkpoint.pt')
-# model.load_state_dict(checkpoint['model_state_dict'])
-# optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+torch.cuda.empty_cache()
+checkpoint = torch.load('model_checkpoint.pt')
+model.load_state_dict(checkpoint['model_state_dict'])
+optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 torch.cuda.empty_cache() # test to liberate memory space
 for i in range(nb_epochs):
     print('-----EPOCH{}-----'.format(i+1))
@@ -105,7 +111,7 @@ for i in range(nb_epochs):
     if best_validation_loss==val_loss:
         print('validation loss improoved saving checkpoint...')
         save_path = os.path.join('./models', 'model_attention'+str(i)+'.pt')
-        # model.to('cpu')
+        model.to('cpu')
         torch.save({
         'epoch': i,
         'model_state_dict': model.state_dict(),
@@ -114,7 +120,7 @@ for i in range(nb_epochs):
         'loss': loss,
         }, 'model_checkpoint.pt')
         print('checkpoint saved to: {}'.format(save_path))
-        # model.to(device)
+        model.to(device)
         torch.cuda.empty_cache() # test to liberate memory space
     torch.cuda.empty_cache() # test to liberate memory space
 
@@ -156,4 +162,3 @@ solution = pd.DataFrame(similarity)
 solution['ID'] = solution.index
 solution = solution[['ID'] + [col for col in solution.columns if col!='ID']]
 solution.to_csv('submission.csv', index=False)
-print("finished")

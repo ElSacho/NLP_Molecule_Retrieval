@@ -17,7 +17,8 @@ def contrastive_loss(v1, v2):
   labels = torch.arange(logits.shape[0], device=v1.device)
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
-model_name = 'distilbert-base-uncased'
+# model_name = 'distilbert-base-uncased'
+model_name = 'allenai/scibert_scivocab_uncased'
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
 val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
@@ -26,7 +27,7 @@ train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=t
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 nb_epochs = 5
-batch_size = 32
+batch_size = 10
 learning_rate = 2e-5
 
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
