@@ -50,6 +50,7 @@ class GraphEncoderOneHead(nn.Module):
         x = global_mean_pool(x, batch)
         x = self.relu(self.mol_hidden1(x))
         x = self.mol_hidden2(x)
+        x = self.mol_hidden3(x)
 
         return x
     
@@ -65,15 +66,14 @@ class GraphEncoderOneHead(nn.Module):
 #         return encoded_text.last_hidden_state[:,0,:]
 
 class TextEncoder(nn.Module):
-    def __init__(self, model_name, output_dim=256):
+    def __init__(self, model_name, nout=256):
         super(TextEncoder, self).__init__()
         self.bert = BertModel.from_pretrained(model_name)
-        # self.linear = nn.Linear(self.bert.config.hidden_size, output_dim)
-        # self.norm = nn.LayerNorm(output_dim)
+        self.linear = nn.Linear(self.bert.config.hidden_size, nout)
+        self.norm = nn.LayerNorm(nout)
 
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-        return encoded_text.last_hidden_state[:,0,:]
         cls_token_state = encoded_text.last_hidden_state[:, 0, :]
         linear_output = self.linear(cls_token_state)
         normalized_output = self.norm(linear_output)
@@ -83,11 +83,14 @@ class Model(nn.Module):
     def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
         super(Model, self).__init__()
         self.graph_encoder = GraphEncoderOneHead(num_node_features, nout, nhid, graph_hidden_channels)
-        self.text_encoder = TextEncoder(model_name, output_dim=nout)
+        self.text_encoder = TextEncoder(model_name, nout=nout)
         
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
+        # print(max graph_encoded) TODO
+        # print(mean graph_encoded)
+        # print(min graph_encoded)
         return graph_encoded, text_encoded
     
     def get_text_encoder(self):

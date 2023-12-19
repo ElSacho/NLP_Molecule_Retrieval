@@ -2,7 +2,8 @@ from dataloader import GraphTextDataset, GraphDataset, TextDataset
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
 # from Model02 import Model
-from ModelOneHead import Model
+# from ModelOneHead import Model
+from ModelOneHeadNLP import Model
 import numpy as np
 from transformers import AutoTokenizer
 import torch
@@ -11,6 +12,7 @@ import time
 import os
 import pandas as pd
 from tqdm import tqdm
+import csv
 
 from lraps import calculate_val_lraps
 
@@ -35,19 +37,19 @@ train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=t
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 nb_epochs = 30
-batch_size = 25
-learning_rate = 2e-5
+batch_size = 12
+learning_rate = 3e-5
 
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-model = Model(model_name=model_name, num_node_features=300, nout=768, nhid=300, graph_hidden_channels=300) # nout = bert model hidden dim
+model = Model(model_name=model_name, num_node_features=300, nout=768, nhid=600, graph_hidden_channels=300) # nout = bert model hidden dim
 model.to(device)
 
-# optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
-#                                 betas=(0.9, 0.999),
-#                                 weight_decay=0.01)
-optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
+                                betas=(0.9, 0.999),
+                                weight_decay=0.01)
+# optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 
 epoch = 0
 loss = 0
@@ -56,6 +58,12 @@ count_iter = 0
 time1 = time.time()
 printEvery = 50
 best_validation_loss = 1_000_000
+best_lraps = 0
+
+# Initialize the CSV file
+with open('validation_metrics.csv', mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(['Epoch', 'Validation Loss', 'LRAPS'])
 
 # checkpoint = torch.load('model_checkpoint.pt')
 # model.load_state_dict(checkpoint['model_state_dict'])
@@ -106,15 +114,19 @@ for i in range(nb_epochs):
     lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
     torch.cuda.empty_cache() # test to liberate memory space
     best_validation_loss = min(best_validation_loss, val_loss)
+    best_lraps = max(best_lraps, lraps)
     print('-----EPOCH'+str(i+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
-    if best_validation_loss==val_loss:
-        print('validation loss improoved saving checkpoint...')
+    with open('validation_metrics.csv', mode='a', newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow([i + 1, val_loss, lraps])
+    if best_lraps==lraps:
+        print('lraps loss improoved saving checkpoint...')
         save_path = os.path.join('./models', 'model_attention'+str(i)+'.pt')
         # model.to('cpu')
         torch.save({
         'epoch': i,
         'model_state_dict': model.state_dict(),
-        # 'optimizer_state_dict': optimizer.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
         'validation_accuracy': val_loss,
         'loss': loss,
         }, 'model_checkpoint.pt')
