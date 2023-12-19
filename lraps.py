@@ -1,6 +1,6 @@
 from dataloader import GraphTextDataset
 from torch_geometric.data import DataLoader
-from attentionGNNModel import Model
+from NLP_Molecule_Retrieval.ModelOneHead import Model
 import numpy as np
 from transformers import AutoTokenizer
 import torch

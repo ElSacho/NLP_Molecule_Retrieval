@@ -1,7 +1,8 @@
 from dataloader import GraphTextDataset, GraphDataset, TextDataset
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
-from Model02 import Model
+# from Model02 import Model
+from ModelOneHead import Model
 import numpy as np
 from transformers import AutoTokenizer
 import torch
@@ -20,14 +21,12 @@ def contrastive_loss(v1, v2):
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
 # model_name = str(input("Please write the model name : "))
-model_name = 'distilbert-base-uncased'
+# model_name = 'distilbert-base-uncased'
 # model_name = 'microsoft/MiniLM-L12-H384-uncased'
 # model_name = 'microsoft/MiniLM-L6-H384-uncased'
-# model_name = 'allenai/scibert_scivocab_uncased'
+model_name = 'allenai/scibert_scivocab_uncased'
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-# model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-# tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
 
 gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
 val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
@@ -36,7 +35,7 @@ train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=t
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 nb_epochs = 30
-batch_size = 32
+batch_size = 25
 learning_rate = 2e-5
 
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
@@ -45,9 +44,10 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 model = Model(model_name=model_name, num_node_features=300, nout=768, nhid=300, graph_hidden_channels=300) # nout = bert model hidden dim
 model.to(device)
 
-optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
-                                betas=(0.9, 0.999),
-                                weight_decay=0.01)
+# optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
+#                                 betas=(0.9, 0.999),
+#                                 weight_decay=0.01)
+optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 
 epoch = 0
 loss = 0
@@ -114,7 +114,7 @@ for i in range(nb_epochs):
         torch.save({
         'epoch': i,
         'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
+        # 'optimizer_state_dict': optimizer.state_dict(),
         'validation_accuracy': val_loss,
         'loss': loss,
         }, 'model_checkpoint.pt')
