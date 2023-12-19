@@ -52,53 +52,22 @@ class GraphEncoderAttentionWithNeighborAttentionResidual(nn.Module):
 
         return x
     
-class TextEncoder(nn.Module):
-    def __init__(self, model_name):
-        super(TextEncoder, self).__init__()
-        self.bert = AutoModel.from_pretrained(model_name)
-        # self.bert = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-        
-    def forward(self, input_ids, attention_mask):
-        encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-        #print(encoded_text.last_hidden_state.size())
-        return encoded_text.last_hidden_state[:,0,:]
-    
-class Model(nn.Module):
-    def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
-        super(Model, self).__init__()
-        self.graph_encoder = GraphEncoderAttentionWithNeighborAttentionResidual(num_node_features, nout, nhid, graph_hidden_channels)
-        self.text_encoder = TextEncoder(model_name)
-        
-    def forward(self, graph_batch, input_ids, attention_mask):
-        graph_encoded = self.graph_encoder(graph_batch)
-        text_encoded = self.text_encoder(input_ids, attention_mask)
-        return graph_encoded, text_encoded
-    
-    def get_text_encoder(self):
-        return self.text_encoder
-    
-    def get_graph_encoder(self):
-        return self.graph_encoder
-
 # class TextEncoder(nn.Module):
-#     def __init__(self, model_name, output_dim=256):
+#     def __init__(self, model_name):
 #         super(TextEncoder, self).__init__()
 #         self.bert = AutoModel.from_pretrained(model_name)
-#         self.linear = nn.Linear(self.bert.config.hidden_size, output_dim)
-#         self.norm = nn.LayerNorm(output_dim)
-
+#         # self.bert = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
+        
 #     def forward(self, input_ids, attention_mask):
 #         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-#         cls_token_state = encoded_text.last_hidden_state[:, 0, :]
-#         linear_output = self.linear(cls_token_state)
-#         normalized_output = self.norm(linear_output)
-#         return normalized_output
+#         #print(encoded_text.last_hidden_state.size())
+#         return encoded_text.last_hidden_state[:,0,:]
     
 # class Model(nn.Module):
-#     def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
+#     def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels, num_heads=1):
 #         super(Model, self).__init__()
-#         self.graph_encoder = GraphEncoderAttentionWithNeighborAttentionResidual(num_node_features, nout, nhid, graph_hidden_channels)
-#         self.text_encoder = TextEncoder(model_name, output_dim=nout)
+#         self.graph_encoder = GraphEncoderAttentionWithNeighborAttentionResidual(num_node_features, nout, nhid, graph_hidden_channels, num_heads = num_heads)
+#         self.text_encoder = TextEncoder(model_name)
         
 #     def forward(self, graph_batch, input_ids, attention_mask):
 #         graph_encoded = self.graph_encoder(graph_batch)
@@ -110,6 +79,37 @@ class Model(nn.Module):
     
 #     def get_graph_encoder(self):
 #         return self.graph_encoder
+
+class TextEncoder(nn.Module):
+    def __init__(self, model_name, output_dim=256):
+        super(TextEncoder, self).__init__()
+        self.bert = AutoModel.from_pretrained(model_name)
+        self.linear = nn.Linear(self.bert.config.hidden_size, output_dim)
+        self.norm = nn.LayerNorm(output_dim)
+
+    def forward(self, input_ids, attention_mask):
+        encoded_text = self.bert(input_ids, attention_mask=attention_mask)
+        cls_token_state = encoded_text.last_hidden_state[:, 0, :]
+        linear_output = self.linear(cls_token_state)
+        normalized_output = self.norm(linear_output)
+        return normalized_output
+    
+class Model(nn.Module):
+    def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
+        super(Model, self).__init__()
+        self.graph_encoder = GraphEncoderAttentionWithNeighborAttentionResidual(num_node_features, nout, nhid, graph_hidden_channels)
+        self.text_encoder = TextEncoder(model_name, output_dim=nout)
+        
+    def forward(self, graph_batch, input_ids, attention_mask):
+        graph_encoded = self.graph_encoder(graph_batch)
+        text_encoded = self.text_encoder(input_ids, attention_mask)
+        return graph_encoded, text_encoded
+    
+    def get_text_encoder(self):
+        return self.text_encoder
+    
+    def get_graph_encoder(self):
+        return self.graph_encoder
 
 # class TextEncoder(nn.Module):
 #     def __init__(self, model_name, embedding_dim=768):

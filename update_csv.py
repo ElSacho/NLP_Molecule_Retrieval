@@ -17,8 +17,8 @@ def contrastive_loss(v1, v2):
   labels = torch.arange(logits.shape[0], device=v1.device)
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
-# model_name = 'distilbert-base-uncased'
-model_name = 'allenai/scibert_scivocab_uncased'
+model_name = 'distilbert-base-uncased'
+# model_name = 'allenai/scibert_scivocab_uncased'
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
 val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
@@ -71,16 +71,16 @@ for batch in tqdm(test_text_loader):
                              attention_mask=batch['attention_mask'].to(device)):
         text_embeddings.append(output.tolist())
 
-print('here')
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 similarity = cosine_similarity(text_embeddings, graph_embeddings)
 
 solution = pd.DataFrame(similarity)
-print('here')
+
 solution['ID'] = solution.index
-print('here')
+
 solution = solution[['ID'] + [col for col in solution.columns if col!='ID']]
-print('here')
+
 solution.to_csv('submission_attention.csv', index=False)
 print('finished !')

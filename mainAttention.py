@@ -1,7 +1,7 @@
 from dataloader import GraphTextDataset, GraphDataset, TextDataset
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
-from attentionGNNModel import Model
+from Model02 import Model
 import numpy as np
 from transformers import AutoTokenizer
 import torch
@@ -11,6 +11,8 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
+from lraps import calculate_val_lraps
+
 CE = torch.nn.CrossEntropyLoss()
 def contrastive_loss(v1, v2):
   logits = torch.matmul(v1,torch.transpose(v2, 0, 1))
@@ -18,10 +20,10 @@ def contrastive_loss(v1, v2):
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
 # model_name = str(input("Please write the model name : "))
-# model_name = 'distilbert-base-uncased'
+model_name = 'distilbert-base-uncased'
 # model_name = 'microsoft/MiniLM-L12-H384-uncased'
 # model_name = 'microsoft/MiniLM-L6-H384-uncased'
-model_name = 'allenai/scibert_scivocab_uncased'
+# model_name = 'allenai/scibert_scivocab_uncased'
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 # model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
@@ -33,8 +35,8 @@ train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=t
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-nb_epochs = 10
-batch_size = 10
+nb_epochs = 30
+batch_size = 32
 learning_rate = 2e-5
 
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
@@ -79,6 +81,7 @@ for i in range(nb_epochs):
         loss += current_loss.item()
         
         count_iter += 1
+        
         if count_iter % printEvery == 0:
             time2 = time.time()
             print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
@@ -100,8 +103,10 @@ for i in range(nb_epochs):
         current_loss = contrastive_loss(x_graph, x_text)   
         val_loss += current_loss.item()
         torch.cuda.empty_cache() # test to liberate memory space
+    lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
+    torch.cuda.empty_cache() # test to liberate memory space
     best_validation_loss = min(best_validation_loss, val_loss)
-    print('-----EPOCH'+str(i+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)) )
+    print('-----EPOCH'+str(i+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
     if best_validation_loss==val_loss:
         print('validation loss improoved saving checkpoint...')
         save_path = os.path.join('./models', 'model_attention'+str(i)+'.pt')
