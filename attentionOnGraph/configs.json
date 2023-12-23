@@ -1,0 +1,23 @@
+{
+  "expt_name": "oneHead",
+  "log_dir":"very_important",
+  "model_path": "attentionOnGraph/ModelOneHead.py",
+
+  "num_node_features": 300,
+  "nout": 768,
+  "nhid": 300,
+  "graph_hidden_channels": 50,
+  "mlp_layers": 2,
+  "aggregation": "mean",
+
+  "model_name": "distilbert-base-uncased",
+  
+  "nb_epochs": 15,
+  "batch_size": 32,
+  "accumulation_steps": 1,
+
+  "learning_rate": 0.001,
+  "weight_decay": 1.01,
+
+  "load_model_path": "None"
+}

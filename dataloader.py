@@ -87,8 +87,7 @@ class GraphTextDataset(Dataset):
 
     def get_cid(self, cid):
         data = torch.load(osp.join(self.processed_dir, 'data_{}.pt'.format(cid)))
-        return data
-    
+        return data   
     
 class GraphDataset(Dataset):
     def __init__(self, root, gt, split, transform=None, pre_transform=None):

@@ -1,7 +1,7 @@
 from dataloader import GraphTextDataset, GraphDataset, TextDataset
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
-from NLP_Molecule_Retrieval.ModelOneHead import Model
+# from ModelOneHead import Model
 import numpy as np
 from transformers import AutoTokenizer
 import torch

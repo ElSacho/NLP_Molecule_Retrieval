@@ -11,10 +11,14 @@ import torch.nn as nn
 from torch_geometric.nn import GCNConv, global_mean_pool, GATConv, BatchNorm
 
 class GraphEncoderOneHead(nn.Module):
-    def __init__(self, num_node_features, nout, nhid, graph_hidden_channels, num_heads=1):
+    def __init__(self, parameters):            
         super(GraphEncoderOneHead, self).__init__()
-        self.nhid = nhid
-        self.nout = nout
+        num_node_features = parameters['num_node_features']
+        nout = parameters['nout']
+        nhid = parameters['nhid']
+        graph_hidden_channels = parameters['graph_hidden_channels']
+        num_heads = 1
+        
         self.relu = nn.ReLU()
         self.ln = nn.LayerNorm(nout)
         
@@ -50,47 +54,27 @@ class GraphEncoderOneHead(nn.Module):
         x = global_mean_pool(x, batch)
         x = self.relu(self.mol_hidden1(x))
         x = self.mol_hidden2(x)
-        x = self.mol_hidden3(x)
 
         return x
     
-# class TextEncoder(nn.Module):
-#     def __init__(self, model_name):
-#         super(TextEncoder, self).__init__()
-#         self.bert = AutoModel.from_pretrained(model_name)
-#         self.bert.train()
-        
-#     def forward(self, input_ids, attention_mask):
-#         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-#         #print(encoded_text.last_hidden_state.size())
-#         return encoded_text.last_hidden_state[:,0,:]
-
 class TextEncoder(nn.Module):
-    def __init__(self, model_name, nout=256):
+    def __init__(self, parameters):
         super(TextEncoder, self).__init__()
-        self.bert = BertModel.from_pretrained(model_name)
-        self.linear = nn.Linear(self.bert.config.hidden_size, nout)
-        self.norm = nn.LayerNorm(nout)
+        self.bert = AutoModel.from_pretrained(parameters['model_name'])
 
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-        cls_token_state = encoded_text.last_hidden_state[:, 0, :]
-        linear_output = self.linear(cls_token_state)
-        normalized_output = self.norm(linear_output)
-        return normalized_output
-    
+        return encoded_text.last_hidden_state[:,0,:]
+
 class Model(nn.Module):
-    def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
+    def __init__(self, parameters):
         super(Model, self).__init__()
-        self.graph_encoder = GraphEncoderOneHead(num_node_features, nout, nhid, graph_hidden_channels)
-        self.text_encoder = TextEncoder(model_name, nout=nout)
+        self.graph_encoder = GraphEncoderOneHead(parameters)
+        self.text_encoder = TextEncoder(parameters)
         
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
-        # print(max graph_encoded) TODO
-        # print(mean graph_encoded)
-        # print(min graph_encoded)
         return graph_encoded, text_encoded
     
     def get_text_encoder(self):

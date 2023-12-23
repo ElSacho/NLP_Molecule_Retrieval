@@ -14,7 +14,7 @@ import pandas as pd
 from tqdm import tqdm
 import csv
 
-from lraps import calculate_val_lraps
+from old.lraps import calculate_val_lraps
 
 CE = torch.nn.CrossEntropyLoss()
 def contrastive_loss(v1, v2):
@@ -23,10 +23,10 @@ def contrastive_loss(v1, v2):
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
 # model_name = str(input("Please write the model name : "))
-# model_name = 'distilbert-base-uncased'
+model_name = 'distilbert-base-uncased'
 # model_name = 'microsoft/MiniLM-L12-H384-uncased'
 # model_name = 'microsoft/MiniLM-L6-H384-uncased'
-model_name = 'allenai/scibert_scivocab_uncased'
+# model_name = 'allenai/scibert_scivocab_uncased'
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
@@ -36,8 +36,8 @@ train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=t
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-nb_epochs = 30
-batch_size = 12
+nb_epochs = 40
+batch_size = 32
 learning_rate = 3e-5
 
 val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
