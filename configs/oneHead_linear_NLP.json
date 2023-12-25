@@ -1,7 +1,7 @@
 {
-  "expt_name": "oneHead",
-  "log_dir":"first_try",
-  "model_path": "attentionOnGraph/ModelOneHead.py",
+  "expt_name": "oneHead_02",
+  "log_dir":"oneHead_LinearNLP",
+  "model_path": "attentionOnGraph/ModelOneHead_LinearNLP.py",
 
   "num_node_features": 300,
   "nout": 768,
@@ -12,8 +12,8 @@
 
   "model_name": "distilbert-base-uncased",
   
-  "nb_epochs": 3,
-  "n_batches_before_break_in_epochs": 10,
+  "nb_epochs": 15,
+  "n_batches_before_break_in_epochs": -1,
   "batch_size": 15,
   "accumulation_steps": 1,
 
