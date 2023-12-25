@@ -1,6 +1,6 @@
 {
-  "expt_name": "oneHead",
-  "log_dir":"first_try",
+  "expt_name": "oneHead_02",
+  "log_dir":"first_try_02",
   "model_path": "attentionOnGraph/ModelOneHead.py",
 
   "num_node_features": 300,
@@ -14,7 +14,7 @@
   
   "nb_epochs": 3,
   "n_batches_before_break_in_epochs": 10,
-  "batch_size": 15,
+  "batch_size": 10,
   "accumulation_steps": 1,
 
   "learning_rate": 3e-05,

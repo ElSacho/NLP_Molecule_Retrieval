@@ -54,6 +54,7 @@ class GraphEncoderOneHead(nn.Module):
         x = global_mean_pool(x, batch)
         x = self.relu(self.mol_hidden1(x))
         x = self.mol_hidden2(x)
+        x = self.mol_hidden3(x)
 
         return x
     

@@ -28,7 +28,12 @@ def contrastive_loss(v1, v2):
   labels = torch.arange(logits.shape[0], device=v1.device)
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
-def train(config_path):
+def train(list_config_path):
+    best_lraps = 0
+    for config_path in list_config_path:
+        best_lraps = train_conf(config_path, best_lraps)
+
+def train_conf(config_path, best_lraps):
     
     with open(config_path, 'r') as file:
         parameters = json.load(file)
@@ -79,9 +84,10 @@ def train(config_path):
         except:
             raise Exception("Model path from configs.json not found")
     print('Start training')
-    train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters)
+    best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
+    return best_lraps
 
-def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, printEvery = 50):
+def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 50):
     expt_name = parameters['expt_name']
     timestamp = time.strftime("%Y-%m-%d--%H%M")
     writer = SummaryWriter(f'logs/{expt_name}-{timestamp}')
@@ -95,7 +101,6 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
     time1 = time.time()
 
     best_validation_loss = 1_000_000
-    best_lraps = 0
 
     writer.add_hparams(hparam_dict=parameters, metric_dict={})
     torch.cuda.empty_cache() # test to liberate memory space
@@ -124,6 +129,9 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
                 time2 = time.time()
                 print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
                                                                             time2 - time1, loss/count_iter))
+
+            if count_iter > parameters['n_batches_before_break_in_epochs'] and parameters['n_batches_before_break_in_epochs'] != -1:
+                break
             torch.cuda.empty_cache() # test to liberate memory space
         loss = 0
         writer.add_scalar('Loss/train', loss, epoch)
@@ -161,5 +169,6 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
             'loss': loss,
             }, 'model_checkpoint.pt')
             print('checkpoint saved to: {}'.format(save_path))
-            
+        
         torch.cuda.empty_cache() # test to liberate memory space
+    return best_lraps

@@ -196,3 +196,5 @@ class TextDataset(TorchDataset):
             'input_ids': encoding['input_ids'].squeeze(),
             'attention_mask': encoding['attention_mask'].squeeze()
         }
+
+
