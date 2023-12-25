@@ -1,0 +1,23 @@
+{
+    "expt_name": "inital_models",
+    "log_dir":"first_try",
+    "model_path": "attentionOnGraph/ModelAttention_withoutMLP.py",
+  
+    "num_node_features": 300,
+    "nout": 768,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "aggregation": "mean",
+
+    "model_name": "distilbert-base-uncased",
+    
+    "nb_epochs": 15,
+    "n_batches_before_break_in_epochs": -1,
+    "batch_size": 32,
+    "accumulation_steps": 1,
+  
+    "learning_rate": 3e-05,
+    "weight_decay": 1.01,
+  
+    "load_model_path": "None"
+  }
