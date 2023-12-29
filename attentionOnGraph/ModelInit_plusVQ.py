@@ -21,7 +21,7 @@ class QuantizationLayer(nn.Module):
 
     def forward(self, x):
         # Flatten x to (batch_size * height * width, embedding_dim)
-        flat_x = x.view(-1, self.embedding_dim)
+        flat_x = x.reshape(-1, self.embedding_dim)
 
         # Calculate distances
         distances = (torch.sum(flat_x**2, dim=1, keepdim=True) 
@@ -38,8 +38,12 @@ class QuantizationLayer(nn.Module):
         return quantized, (quantized - x).detach() + x
 
 class GraphEncoder(nn.Module):
-    def __init__(self, num_node_features, nout, nhid, graph_hidden_channels):
+    def __init__(self, parameters):
         super(GraphEncoder, self).__init__()
+        num_node_features = parameters['num_node_features']
+        nout = parameters['nout']
+        nhid = parameters['nhid']
+        graph_hidden_channels = parameters['graph_hidden_channels']
         self.nhid = nhid
         self.nout = nout
         self.relu = nn.ReLU()
@@ -65,9 +69,9 @@ class GraphEncoder(nn.Module):
         return x
     
 class TextEncoder(nn.Module):
-    def __init__(self, model_name):
+    def __init__(self, parameters):
         super(TextEncoder, self).__init__()
-        self.bert = AutoModel.from_pretrained(model_name)
+        self.bert = AutoModel.from_pretrained(parameters['model_name'])
         
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
@@ -86,7 +90,7 @@ class Model(nn.Module):
         text_encoded = self.text_encoder(input_ids, attention_mask)
         
         # Quantization
-        quantized_graph, _ = self.quantization(graph_encoded)
-        quantized_text, _ = self.quantization(text_encoded)
+        quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
+        quantized_text, quantization_loss_text = self.quantization(text_encoded)
 
-        return quantized_graph, quantized_text
+        return quantized_graph, quantized_text, quantization_loss_graph, quantization_loss_text

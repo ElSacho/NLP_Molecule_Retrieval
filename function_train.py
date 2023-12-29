@@ -221,7 +221,7 @@ def train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader
             # You can adjust the weight of these losses if necessary
             lambda_quantization = 0.25  # Example weight for quantization loss
             total_loss = current_loss + lambda_quantization * (quantization_loss_graph + quantization_loss_text)
-
+            total_loss = total_loss.mean()
             # Backpropagation
             optimizer.zero_grad()
             total_loss.backward()
