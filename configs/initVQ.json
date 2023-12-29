@@ -14,7 +14,7 @@
   "beta": 0.25,
 
 
-  "lambda_quantization": 3,
+  "lambda_quantization": 0.25,
   "model_name": "distilbert-base-uncased",
   "VQ": true,
   

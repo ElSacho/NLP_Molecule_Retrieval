@@ -187,6 +187,8 @@ def train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader
 
     epoch = 0
     loss = 0
+    cur_loss = 0
+    vq_loss = 0
 
     count_iter = 0
     time1 = time.time()
@@ -198,7 +200,7 @@ def train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader
     for epoch in range(nb_epochs):
         print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
-        count_iter
+        count_iter = 0
         for batch in train_loader:
             input_ids = batch.input_ids
             batch.pop('input_ids')
@@ -230,18 +232,22 @@ def train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader
 
             # Accumulate the losses for logging or averaging
             loss += total_loss.item()
+            cur_loss += current_loss.item()
+            vq_loss += (lambda_quantization * (quantization_loss_graph + quantization_loss_text)).item()
             count_iter += 1
             
             if count_iter % printEvery == 0:
                 time2 = time.time()
                 print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
                                                                             time2 - time1, loss/count_iter))
-                print("And the loss decompose in : ", current_loss.item(), 'and ', ( lambda_quantization * (quantization_loss_graph + quantization_loss_text)).mean().item())
+                print("And the loss decompose in : ", cur_loss.item()/count_iter, 'and ', vq_loss.item()/count_iter)
 
             if count_iter > parameters['n_batches_before_break_in_epochs'] and parameters['n_batches_before_break_in_epochs'] != -1:
                 break
             torch.cuda.empty_cache() # test to liberate memory space
         loss = 0
+        cur_loss = 0
+        vq_loss = 0
         writer.add_scalar('Loss/train', loss, epoch)
         
         model.eval()
