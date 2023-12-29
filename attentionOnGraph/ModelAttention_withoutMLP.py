@@ -64,9 +64,6 @@ class GraphEncoderOneHead(nn.Module):
 
         return x
 
-
-
-
 class TextEncoder(nn.Module):
     def __init__(self, parameters):
         super(TextEncoder, self).__init__()

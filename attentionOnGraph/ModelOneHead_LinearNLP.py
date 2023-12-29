@@ -17,6 +17,7 @@ class GraphEncoderOneHead(nn.Module):
         nout = parameters['nout']
         nhid = parameters['nhid']
         graph_hidden_channels = parameters['graph_hidden_channels']
+        mlp_layers = parameters['mlp_layers']
         num_heads = 1
         
         self.relu = nn.ReLU()
@@ -36,7 +37,9 @@ class GraphEncoderOneHead(nn.Module):
         
         # Linear layers
         self.mol_hidden1 = nn.Linear(graph_hidden_channels, nhid)
-        self.mol_hidden2 = nn.Linear(nhid, nhid)
+        self.mol_hiddens = []
+        for _ in range(mlp_layers):
+            self.mol_hiddens.append(nn.Linear(nhid, nhid))
         self.mol_hidden3 = nn.Linear(nhid, nout)
 
     def forward(self, graph_batch):
@@ -53,7 +56,9 @@ class GraphEncoderOneHead(nn.Module):
         # Pooling and linear layers
         x = global_mean_pool(x, batch)
         x = self.relu(self.mol_hidden1(x))
-        x = self.mol_hidden2(x)
+        if len(self.mol_hiddens) > 0:
+            for mlp_layer in self.mol_hiddens:
+                x = self.relu(mlp_layer(x))
         x = self.mol_hidden3(x)
 
         return x
@@ -62,10 +67,16 @@ class TextEncoder(nn.Module):
     def __init__(self, parameters):
         super(TextEncoder, self).__init__()
         self.bert = AutoModel.from_pretrained(parameters['model_name'])
+        nout = parameters['nout']
+        self.linear = nn.Linear(self.bert.config.hidden_size, nout)
+        self.norm = nn.LayerNorm(nout)
 
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-        return encoded_text.last_hidden_state[:,0,:]
+        cls_token_state = encoded_text.last_hidden_state[:, 0, :]
+        linear_output = self.linear(cls_token_state)
+        normalized_output = self.norm(linear_output)
+        return normalized_output
 
 class Model(nn.Module):
     def __init__(self, parameters):

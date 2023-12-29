@@ -1,16 +1,17 @@
 {
-  "expt_name": "oneHead_02",
-  "log_dir":"oneHead_LinearNLP",
+  "expt_name": "load_best_mmodel",
+  "log_dir":"load_best_mmodel",
   "model_path": "attentionOnGraph/ModelOneHead_LinearNLP.py",
 
   "num_node_features": 300,
   "nout": 768,
   "nhid": 300,
   "graph_hidden_channels": 300,
-  "mlp_layers": 2,
+  "mlp_layers": 0,
   "aggregation": "mean",
 
-  "model_name": "distilbert-base-uncased",
+  "old_name": "distilbert-base-uncased",
+  "model_name": "allenai/scibert_scivocab_uncased",
   "VQ": false,
   
   "nb_epochs": 15,
@@ -21,5 +22,5 @@
   "learning_rate": 3e-05,
   "weight_decay": 1.01,
 
-  "load_model_path": "None"
+  "load_model_path": "0point14model_checkpoint.pt"
 }
