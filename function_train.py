@@ -111,7 +111,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
     for epoch in range(nb_epochs):
         print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
-        count_iter
+        count_iter = 0
         for batch in train_loader:
             input_ids = batch.input_ids
             batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
