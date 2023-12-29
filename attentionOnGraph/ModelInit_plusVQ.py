@@ -137,9 +137,9 @@ class Model(nn.Module):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
         
-        return graph_encoded, text_encoded, 1, 1
-        normalized_graph_encoded = graph_encoded / graph_encoded.norm(dim=1, keepdim=True)
-        normalized_text_encoded = text_encoded / text_encoded.norm(dim=1, keepdim=True)
+        # return graph_encoded, text_encoded, 1, 1
+        # graph_encoded = graph_encoded / graph_encoded.norm(dim=1, keepdim=True)
+        # text_encoded = text_encoded / text_encoded.norm(dim=1, keepdim=True)
         
         # embeddings = graph_encoded.detach().cpu().numpy()
         # tsne = TSNE(n_components=2, perplexity=30, n_iter=300)
@@ -155,7 +155,7 @@ class Model(nn.Module):
         # print(text_encoded.mean())
         
         # Quantization
-        quantized_graph, quantization_loss_graph = self.quantization(normalized_graph_encoded)
-        quantized_text, quantization_loss_text = self.quantization(normalized_text_encoded)
-
+        quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
+        quantized_text, quantization_loss_text = self.quantization(text_encoded)
+        return graph_encoded, text_encoded, quantization_loss_graph, quantization_loss_text
         return quantized_graph, quantized_text, quantization_loss_graph, quantization_loss_text
