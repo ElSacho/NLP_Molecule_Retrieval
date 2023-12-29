@@ -136,6 +136,8 @@ class Model(nn.Module):
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
+        
+        return graph_encoded, text_encoded, 1, 1
         normalized_graph_encoded = graph_encoded / graph_encoded.norm(dim=1, keepdim=True)
         normalized_text_encoded = text_encoded / text_encoded.norm(dim=1, keepdim=True)
         

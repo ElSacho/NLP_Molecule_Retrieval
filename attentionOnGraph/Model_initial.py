@@ -7,8 +7,12 @@ from transformers import AutoModel
 
 
 class GraphEncoder(nn.Module):
-    def __init__(self, num_node_features, nout, nhid, graph_hidden_channels):
+    def __init__(self, parameters):
         super(GraphEncoder, self).__init__()
+        num_node_features = parameters['num_node_features']
+        nout = parameters['nout']
+        nhid = parameters['nhid']
+        graph_hidden_channels = parameters['graph_hidden_channels']
         self.nhid = nhid
         self.nout = nout
         self.relu = nn.ReLU()
@@ -34,9 +38,9 @@ class GraphEncoder(nn.Module):
         return x
     
 class TextEncoder(nn.Module):
-    def __init__(self, model_name):
+    def __init__(self, parameters):
         super(TextEncoder, self).__init__()
-        self.bert = AutoModel.from_pretrained(model_name)
+        self.bert = AutoModel.from_pretrained(parameters['model_name'])
         
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
@@ -44,10 +48,10 @@ class TextEncoder(nn.Module):
         return encoded_text.last_hidden_state[:,0,:]
     
 class Model(nn.Module):
-    def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels):
+    def __init__(self, parameters):
         super(Model, self).__init__()
-        self.graph_encoder = GraphEncoder(num_node_features, nout, nhid, graph_hidden_channels)
-        self.text_encoder = TextEncoder(model_name)
+        self.graph_encoder = GraphEncoder(parameters)
+        self.text_encoder = TextEncoder(parameters)
         
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
