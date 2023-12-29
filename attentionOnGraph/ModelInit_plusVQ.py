@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool
 from transformers import AutoModel
+import torch.nn.init as init
 
 
 class QuantizationLayer(nn.Module):
@@ -17,7 +18,8 @@ class QuantizationLayer(nn.Module):
         self.embedding_dim = parameters['embedding_dim']
         self.num_embeddings = parameters['num_embeddings']
         self.embedding = nn.Embedding(self.num_embeddings, self.embedding_dim)
-        self.embedding.weight.data.uniform_(-1/self.num_embeddings, 1/self.num_embeddings)
+        init.xavier_uniform_(self.embedding.weight)
+        # self.embedding.weight.data.uniform_(-1/self.num_embeddings, 1/self.num_embeddings)
 
     def forward(self, x):
         # Flatten x to (batch_size * height * width, embedding_dim)
@@ -30,6 +32,8 @@ class QuantizationLayer(nn.Module):
 
         # Encoding
         encoding_indices = torch.argmin(distances, dim=1).unsqueeze(1)
+        # encoding_indices_list = encoding_indices.tolist()
+        # print(encoding_indices_list)
         encodings = torch.zeros(encoding_indices.shape[0], self.num_embeddings, device=x.device)
         encodings.scatter_(1, encoding_indices, 1)
 
@@ -88,9 +92,15 @@ class Model(nn.Module):
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
+        normalized_graph_encoded = graph_encoded / graph_encoded.norm(dim=1, keepdim=True)
+        normalized_text_encoded = text_encoded / text_encoded.norm(dim=1, keepdim=True)
+
+
+        # print(graph_encoded.mean())
+        # print(text_encoded.mean())
         
         # Quantization
-        quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
-        quantized_text, quantization_loss_text = self.quantization(text_encoded)
+        quantized_graph, quantization_loss_graph = self.quantization(normalized_graph_encoded)
+        quantized_text, quantization_loss_text = self.quantization(normalized_text_encoded)
 
         return quantized_graph, quantized_text, quantization_loss_graph, quantization_loss_text

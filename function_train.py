@@ -235,6 +235,7 @@ def train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader
                 time2 = time.time()
                 print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
                                                                             time2 - time1, loss/count_iter))
+                print("And the loss decompose in : ", current_loss.item(), 'and ', (quantization_loss_graph + quantization_loss_text).mean().item())
 
             if count_iter > parameters['n_batches_before_break_in_epochs'] and parameters['n_batches_before_break_in_epochs'] != -1:
                 break
