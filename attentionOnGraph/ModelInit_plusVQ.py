@@ -12,10 +12,10 @@ from transformers import AutoModel
 
 
 class QuantizationLayer(nn.Module):
-    def __init__(self, num_embeddings, embedding_dim):
+    def __init__(self, parameters):
         super(QuantizationLayer, self).__init__()
-        self.embedding_dim = embedding_dim
-        self.num_embeddings = num_embeddings
+        self.embedding_dim = parameters['embedding_dim']
+        self.num_embeddings = parameters['num_embeddings']
         self.embedding = nn.Embedding(self.num_embeddings, self.embedding_dim)
         self.embedding.weight.data.uniform_(-1/self.num_embeddings, 1/self.num_embeddings)
 
@@ -75,11 +75,11 @@ class TextEncoder(nn.Module):
         return encoded_text.last_hidden_state[:,0,:]
 
 class Model(nn.Module):
-    def __init__(self, model_name, num_node_features, nout, nhid, graph_hidden_channels, num_embeddings, embedding_dim):
+    def __init__(self, parameters):
         super(Model, self).__init__()
-        self.graph_encoder = GraphEncoder(num_node_features, nout, nhid, graph_hidden_channels)
-        self.text_encoder = TextEncoder(model_name)
-        self.quantization = QuantizationLayer(num_embeddings, embedding_dim)
+        self.graph_encoder = GraphEncoder(parameters)
+        self.text_encoder = TextEncoder(parameters)
+        self.quantization = QuantizationLayer(parameters)
 
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
