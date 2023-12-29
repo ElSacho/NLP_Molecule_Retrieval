@@ -9,9 +9,12 @@
   "graph_hidden_channels": 300,
   "mlp_layers": 2,
   "aggregation": "mean",
-  "num_embeddings": 100000, 
+  "num_embeddings": 10000, 
   "embedding_dim": 256,
+  "beta": 0.25,
 
+
+  "lambda_quantization": 100,
   "model_name": "distilbert-base-uncased",
   "VQ": true,
   
