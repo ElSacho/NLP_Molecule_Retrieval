@@ -20,7 +20,7 @@ from torchvision import datasets, transforms
 
 import json
 
-from utils import calculate_val_lraps
+from utils import calculate_val_lraps, calculate_val_lraps_VQ
 
 CE = torch.nn.CrossEntropyLoss()
 def contrastive_loss(v1, v2):
@@ -84,7 +84,11 @@ def train_conf(config_path, best_lraps):
         except:
             raise Exception("Model path from configs.json not found")
     print('Start training')
-    best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
+    if parameters['VQ']:
+        best_lraps = train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
+    else:
+        best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
+    
     return best_lraps
 
 def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 50):
@@ -107,6 +111,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
     for epoch in range(nb_epochs):
         print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
+        count_iter
         for batch in train_loader:
             input_ids = batch.input_ids
             batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
@@ -151,6 +156,118 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
             val_loss += current_loss.item()
             torch.cuda.empty_cache() # test to liberate memory space
         lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
+        torch.cuda.empty_cache() # test to liberate memory space
+        best_validation_loss = min(best_validation_loss, val_loss)
+        best_lraps = max(best_lraps, lraps)
+        print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
+        writer.add_scalar('Loss/val', val_loss, epoch)
+        writer.add_scalar('Lraps/val', lraps, epoch)
+        if best_lraps==lraps:
+            print('lraps loss improoved saving checkpoint...')
+            save_path = os.path.join('./models', 'model_attention'+str(epoch)+'.pt')
+            
+            torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'validation_accuracy': val_loss,
+            'loss': loss,
+            }, 'model_checkpoint.pt')
+            print('checkpoint saved to: {}'.format(save_path))
+        
+        torch.cuda.empty_cache() # test to liberate memory space
+    return best_lraps
+
+def train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 50):
+    expt_name = parameters['expt_name']
+    timestamp = time.strftime("%Y-%m-%d--%H%M")
+    writer = SummaryWriter(f'logs/{expt_name}-{timestamp}')
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    epoch = 0
+    loss = 0
+
+    count_iter = 0
+    time1 = time.time()
+
+    best_validation_loss = 1_000_000
+
+    writer.add_hparams(hparam_dict=parameters, metric_dict={})
+    torch.cuda.empty_cache() # test to liberate memory space
+    for epoch in range(nb_epochs):
+        print('-----EPOCH{}-----'.format(epoch+1))
+        model.train()
+        count_iter
+        for batch in train_loader:
+            input_ids = batch.input_ids
+            batch.pop('input_ids')
+            attention_mask = batch.attention_mask
+            batch.pop('attention_mask')
+            graph_batch = batch
+
+            # Move data to device (e.g., GPU)
+            graph_batch = graph_batch.to(device)
+            input_ids = input_ids.to(device)
+            attention_mask = attention_mask.to(device)
+
+            # Forward pass through the model
+            quantized_graph, quantized_text, quantization_loss_graph, quantization_loss_text = model(graph_batch, input_ids, attention_mask)
+
+            # Calculate Contrastive Loss
+            current_loss = contrastive_loss(quantized_graph, quantized_text)
+
+            # Include Quantization Loss
+            # You can adjust the weight of these losses if necessary
+            lambda_quantization = 0.25  # Example weight for quantization loss
+            total_loss = current_loss + lambda_quantization * (quantization_loss_graph + quantization_loss_text)
+
+            # Backpropagation
+            optimizer.zero_grad()
+            total_loss.backward()
+            optimizer.step()
+
+            # Accumulate the losses for logging or averaging
+            loss += total_loss.item()
+            count_iter += 1
+            
+            if count_iter % printEvery == 0:
+                time2 = time.time()
+                print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
+                                                                            time2 - time1, loss/count_iter))
+
+            if count_iter > parameters['n_batches_before_break_in_epochs'] and parameters['n_batches_before_break_in_epochs'] != -1:
+                break
+            torch.cuda.empty_cache() # test to liberate memory space
+        loss = 0
+        writer.add_scalar('Loss/train', loss, epoch)
+        
+        model.eval()
+        val_loss = 0        
+        for batch in val_loader:
+            input_ids = batch.input_ids
+            batch.pop('input_ids')
+            attention_mask = batch.attention_mask
+            batch.pop('attention_mask')
+            graph_batch = batch
+
+            # Move data to device
+            graph_batch = graph_batch.to(device)
+            input_ids = input_ids.to(device)
+            attention_mask = attention_mask.to(device)
+
+            # Forward pass
+            quantized_graph, quantized_text, quantization_loss_graph, quantization_loss_text = model(graph_batch, input_ids, attention_mask)
+
+            # Calculate Contrastive Loss (primary metric for validation)
+            current_loss = contrastive_loss(quantized_graph, quantized_text)
+
+            # Optionally, you can track quantization loss for analysis
+            # However, it's not used for updating model parameters during validation
+            val_loss += current_loss.item()
+            count_iter += 1
+            torch.cuda.empty_cache() # test to liberate memory space
+        lraps = calculate_val_lraps_VQ(model, val_dataset, val_loader, device)
         torch.cuda.empty_cache() # test to liberate memory space
         best_validation_loss = min(best_validation_loss, val_loss)
         best_lraps = max(best_lraps, lraps)

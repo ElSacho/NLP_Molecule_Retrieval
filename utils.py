@@ -42,3 +42,38 @@ def calculate_val_lraps(model, val_dataset, val_loader, device):
 
     return lrap_score
 
+
+def calculate_val_lraps_VQ(model, val_dataset, val_loader, device):
+    graph_embeddings = []
+    text_embeddings = []
+
+    with torch.no_grad():
+        for batch in val_loader:
+            input_ids = batch.input_ids
+            batch.pop('input_ids')
+            attention_mask = batch.attention_mask
+            batch.pop('attention_mask')
+            graph_batch = batch
+
+            quantized_graph, quantized_text, _, _ = model(graph_batch.to(device), input_ids.to(device), attention_mask.to(device))
+
+            # Decide whether to use quantized or original embeddings here
+            graph_embeddings.append(quantized_graph.cpu().numpy())
+            text_embeddings.append(quantized_text.cpu().numpy())
+
+    # Concatenate embeddings instead of flattening, for efficiency
+    graph_embeddings = np.concatenate(graph_embeddings, axis=0)
+    text_embeddings = np.concatenate(text_embeddings, axis=0)
+
+    num_samples = len(val_dataset)
+    true_labels = np.eye(num_samples)
+
+    # Calculate cosine similarity
+    similarity = cosine_similarity(text_embeddings, graph_embeddings)
+
+    # Compute LRAP score
+    lrap_score = label_ranking_average_precision_score(true_labels, similarity)
+
+    return lrap_score
+
+

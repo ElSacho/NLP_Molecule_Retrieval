@@ -1,7 +1,7 @@
 {
-  "expt_name": "oneHead_02",
-  "log_dir":"oneHead_LinearNLP",
-  "model_path": "attentionOnGraph/ModelOneHead_LinearNLP.py",
+  "expt_name": "VQ_init",
+  "log_dir":"first_try_VQ_VAE",
+  "model_path": "attentionOnGraph/ModelInit_plusVQ.py",
 
   "num_node_features": 300,
   "nout": 768,
@@ -11,7 +11,7 @@
   "aggregation": "mean",
 
   "model_name": "distilbert-base-uncased",
-  "VQ": false,
+  "VQ": true,
   
   "nb_epochs": 15,
   "n_batches_before_break_in_epochs": -1,
