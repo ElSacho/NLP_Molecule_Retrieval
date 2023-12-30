@@ -40,7 +40,7 @@ class GraphEncoderOneHead(nn.Module):
         self.mol_hiddens = []
         for _ in range(mlp_layers):
             self.mol_hiddens.append(nn.Linear(nhid, nhid))
-        self.mol_hidden3 = nn.Linear(nhid, nout)
+        self.mol_hidden2 = nn.Linear(nhid, nout)
 
     def forward(self, graph_batch):
         x, edge_index, batch = graph_batch.x, graph_batch.edge_index, graph_batch.batch
@@ -59,7 +59,7 @@ class GraphEncoderOneHead(nn.Module):
         if len(self.mol_hiddens) > 0:
             for mlp_layer in self.mol_hiddens:
                 x = self.relu(mlp_layer(x))
-        x = self.mol_hidden3(x)
+        x = self.mol_hidden2(x)
 
         return x
     
@@ -67,16 +67,10 @@ class TextEncoder(nn.Module):
     def __init__(self, parameters):
         super(TextEncoder, self).__init__()
         self.bert = AutoModel.from_pretrained(parameters['model_name'])
-        nout = parameters['nout']
-        self.linear = nn.Linear(self.bert.config.hidden_size, nout)
-        self.norm = nn.LayerNorm(nout)
 
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
-        cls_token_state = encoded_text.last_hidden_state[:, 0, :]
-        linear_output = self.linear(cls_token_state)
-        normalized_output = self.norm(linear_output)
-        return normalized_output
+        return encoded_text.last_hidden_state[:,0,:]
 
 class Model(nn.Module):
     def __init__(self, parameters):

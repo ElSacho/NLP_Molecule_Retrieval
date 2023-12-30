@@ -1,18 +1,19 @@
 {
     "expt_name": "inital_models",
     "log_dir":"first_try",
-    "model_path": "attentionOnGraph/ModelAttention_withoutMLP.py",
+    "model_path": "models/oneHead_LinearNLP.py",
   
     "num_node_features": 300,
     "nout": 768,
     "nhid": 300,
     "graph_hidden_channels": 300,
     "aggregation": "mean",
+    "mlp_layers": 2,
 
     "model_name": "distilbert-base-uncased",
     "VQ": false,
 
-    "nb_epochs": 15,
+    "nb_epochs": 20,
     "n_batches_before_break_in_epochs": -1,
     "batch_size": 32,
     "accumulation_steps": 1,

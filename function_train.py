@@ -81,8 +81,9 @@ def train_conf(config_path, best_lraps):
             checkpoint = torch.load(parameters['load_model_path'])
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        except:
-            raise Exception("Model path from configs.json not found")
+        except Exception as e:
+            print("Erreur lors du chargement du modèle ou de l'optimiseur :", e)
+            raise
     print('Start training')
     if parameters['VQ']:
         best_lraps = train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)

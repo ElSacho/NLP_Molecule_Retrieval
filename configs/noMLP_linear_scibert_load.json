@@ -22,5 +22,5 @@
   "learning_rate": 3e-05,
   "weight_decay": 1.01,
 
-  "load_model_path": "None"
+  "load_model_path": "0point14model_checkpoint.pt"
 }
