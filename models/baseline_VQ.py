@@ -137,23 +137,6 @@ class Model(nn.Module):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
         
-        # return graph_encoded, text_encoded, 1, 1
-        # graph_encoded = graph_encoded / graph_encoded.norm(dim=1, keepdim=True)
-        # text_encoded = text_encoded / text_encoded.norm(dim=1, keepdim=True)
-        
-        # embeddings = graph_encoded.detach().cpu().numpy()
-        # tsne = TSNE(n_components=2, perplexity=30, n_iter=300)
-        # tsne_results = tsne.fit_transform(embeddings)
-
-        # plt.figure(figsize=(10, 6))
-        # plt.scatter(tsne_results[:, 0], tsne_results[:, 1])
-        # plt.title('t-SNE visualization of Graph Encoded Embeddings')
-        # plt.savefig('graph_encoded_tsne.png')
-        # print("fig saved")
-
-        # print(graph_encoded.mean())
-        # print(text_encoded.mean())
-        
         # Quantization
         quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
         quantized_text, quantization_loss_text = self.quantization(text_encoded)

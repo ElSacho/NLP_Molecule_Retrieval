@@ -5,6 +5,7 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool
 from transformers import AutoModel, BertModel
 
+from models.quantization import QuantizationLayer
 
 import torch
 import torch.nn as nn
@@ -77,10 +78,18 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.graph_encoder = GraphEncoderOneHead(parameters)
         self.text_encoder = TextEncoder(parameters)
+        self.vq = parameters['VQ']
+        if self.vq :
+            self.quantization = QuantizationLayer(parameters)
         
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
+        
+        if self.vq :
+            quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
+            quantized_text, quantization_loss_text = self.quantization(text_encoded)
+            return graph_encoded, text_encoded, quantization_loss_graph, quantization_loss_text
         return graph_encoded, text_encoded
     
     def get_text_encoder(self):
