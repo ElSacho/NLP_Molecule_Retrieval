@@ -23,6 +23,7 @@ class GraphEncoderOneHead(nn.Module):
         use_cheb = parameters['use_cheb']
         num_heads = parameters['num_head']
         dropout_rate = parameters['dropout_rate']
+        self.cheb_k = 5
         self.temp = nn.Parameter(torch.Tensor([parameters['tempGraph']])) 
         self.num_heads = num_heads
         
