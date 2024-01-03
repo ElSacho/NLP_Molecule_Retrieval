@@ -1,6 +1,6 @@
 {
-    "expt_name": "fine_tune_1_heads_conv_VQ_simple",
-    "log_dir":"fine_tune_1_heads_conv_VQ_simple",
+    "expt_name": "scibert_3_freeze",
+    "log_dir":"scibert_3_freeze",
     "model_path": "models/oneHead_LinearNLP_fine_tune.py",
   
     "num_node_features": 300,
@@ -14,24 +14,25 @@
     "use_sage": false,
     "use_cheb": false,
     "num_head": 1,
-    "dropout_rate": 0.0,
+    "dropout_rate": 0.2,
 
-    "fine_tune": false,
+    "fine_tune": true,
 
     "beta": 0.25,
 
 
     "lambda_quantization": 0.35,
 
-    "model_name": "distilbert-base-uncased",
+    "model_name": "allenai/scibert_scivocab_uncased",
     "VQ": true,
-    "tempText": 0.10,
-    "tempGraph": 0.4,
+    "tempText": 0.28,
+    "tempGraph": 0.08,
 
     "nb_epochs": 50,
     "n_batches_before_break_in_epochs": -1,
-    "batch_size": 32,
-    "accumulation_steps": 1,
+    "batch_size": 12,
+    "epochs_before_freeze": 10,
+    "accumulation_step": 3,
   
     "learning_rate": 3e-05,
     "weight_decay": 1.01,

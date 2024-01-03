@@ -61,10 +61,15 @@ class GraphEncoderOneHead(nn.Module):
         self.mol_hiddens = []
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         for _ in range(mlp_layers):
-            self.mol_hiddens.append(nn.Linear(nhid, nhid).to(device))
+            self.mol_hiddens.append(nn.Linear(nhid, nhid).to(device).to(dtype=torch.float16))
         self.mol_hidden2 = nn.Linear(nhid, nout)
+        
+        self.to(torch.float16)
 
     def forward(self, graph_batch):
+        graph_batch.x = graph_batch.x.to(torch.float16)
+        # graph_batch.edge_index = graph_batch.edge_index.to(torch.float16)
+        
         x, edge_index, batch = graph_batch.x, graph_batch.edge_index, graph_batch.batch
         
         # Apply GCN layers with residual connections
@@ -93,28 +98,30 @@ class GraphEncoderOneHead(nn.Module):
                 x = self.relu(mlp_layer(x))
                 x = self.dropout(x)
         x = self.mol_hidden2(x)
-
-        x = x * torch.exp(self.temp)
+        # x = x * torch.exp(self.temp)
 
         return x
     
 class TextEncoder(nn.Module):
     def __init__(self, parameters):
         super(TextEncoder, self).__init__()
-        self.bert = AutoModel.from_pretrained(parameters['model_name'])
+        self.bert = AutoModel.from_pretrained(parameters['model_name']).to(dtype=torch.float16)
         nout = parameters['nout']
         self.temp = nn.Parameter(torch.Tensor([parameters['tempText']])) 
         self.linear = nn.Linear(self.bert.config.hidden_size, nout)
         self.norm = nn.LayerNorm(nout)
         self.train_mode(mode = parameters['fine_tune'])
+        self.to(torch.float16)
 
     def forward(self, input_ids, attention_mask):
+        input_ids = input_ids.to(torch.long)
+        attention_mask = attention_mask.to(torch.float16)
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
         cls_token_state = encoded_text.last_hidden_state[:, 0, :]
         linear_output = self.linear(cls_token_state)
         normalized_output = self.norm(linear_output)
-        text_x = normalized_output * torch.exp(self.temp)
-        return text_x
+        # text_x = normalized_output * torch.exp(self.temp)
+        return normalized_output
     
     def train_mode(self, mode=True):
         self.fine_tune = mode
@@ -129,21 +136,14 @@ class Model(nn.Module):
         self.vq = parameters['VQ']
         if self.vq :
             self.quantization = QuantizationLayer(parameters)
+        self.to(torch.float16)
             
     def forward(self, graph_batch, input_ids, attention_mask):
-        # print('\n\n\n\n\n\n\n')
-        # print(graph_batch[0])
-        # print('\n\n\n\n\n\n\n')
-        # print(input_ids[0])
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
         if self.vq :
             quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
             quantized_text, quantization_loss_text = self.quantization(text_encoded)
-            # print('\n\n\n\n\n\n\n')
-            # print(graph_encoded[0])
-            # print('\n\n\n\n\n\n\n')
-            # print(text_encoded[0])
             return graph_encoded, text_encoded, quantization_loss_graph, quantization_loss_text
 
         return graph_encoded, text_encoded
