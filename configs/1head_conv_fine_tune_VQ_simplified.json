@@ -30,7 +30,7 @@
 
     "nb_epochs": 50,
     "n_batches_before_break_in_epochs": -1,
-    "batch_size": 40,
+    "batch_size": 32,
     "accumulation_steps": 1,
   
     "learning_rate": 3e-05,
