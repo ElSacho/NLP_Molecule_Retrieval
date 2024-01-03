@@ -7,7 +7,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics import label_ranking_average_precision_score
 import pandas as pd
 
-def calculate_val_lraps(model, val_dataset, val_loader, device):
+import os
+
+
+def calculate_val_lraps(model, val_dataset, val_loader, device, save=True):
     graph_embeddings = []
     text_embeddings = []
 
@@ -39,11 +42,26 @@ def calculate_val_lraps(model, val_dataset, val_loader, device):
     # Calcul du LRAPS
     
     lrap_score = label_ranking_average_precision_score(true_labels, similarity)
+    
+    if save:
+        solution = pd.DataFrame(similarity)
+        solution['ID'] = solution.index
+        solution = solution[['ID'] + [col for col in solution.columns if col != 'ID']]
+
+        # Create 'submissions' folder if it doesn't exist
+        if not os.path.exists('submissions'):
+            os.makedirs('submissions')
+
+        # Format the filename based on the LRAP score
+        formatted_score = int(lrap_score * 10000)
+        filename = f"{formatted_score}_submission.csv"
+
+        # Save the DataFrame to the file in 'submissions' folder
+        solution.to_csv(os.path.join('submissions', filename), index=False)
 
     return lrap_score
 
-
-def calculate_val_lraps_VQ(model, val_dataset, val_loader, device):
+def calculate_val_lraps_VQ(model, val_dataset, val_loader, device, save = True):
     graph_embeddings = []
     text_embeddings = []
 
@@ -57,7 +75,6 @@ def calculate_val_lraps_VQ(model, val_dataset, val_loader, device):
 
             quantized_graph, quantized_text, _, _ = model(graph_batch.to(device), input_ids.to(device), attention_mask.to(device))
 
-            # Decide whether to use quantized or original embeddings here
             graph_embeddings.append(quantized_graph.cpu().numpy())
             text_embeddings.append(quantized_text.cpu().numpy())
 
@@ -73,6 +90,24 @@ def calculate_val_lraps_VQ(model, val_dataset, val_loader, device):
 
     # Compute LRAP score
     lrap_score = label_ranking_average_precision_score(true_labels, similarity)
+    
+    similarity = cosine_similarity(text_embeddings, graph_embeddings)
+
+    if save:
+        solution = pd.DataFrame(similarity)
+        solution['ID'] = solution.index
+        solution = solution[['ID'] + [col for col in solution.columns if col != 'ID']]
+
+        # Create 'submissions' folder if it doesn't exist
+        if not os.path.exists('submissions'):
+            os.makedirs('submissions')
+
+        # Format the filename based on the LRAP score
+        formatted_score = int(lrap_score * 10000)
+        filename = f"{formatted_score}_submission.csv"
+
+        # Save the DataFrame to the file in 'submissions' folder
+        solution.to_csv(os.path.join('submissions', filename), index=False)
 
     return lrap_score
 

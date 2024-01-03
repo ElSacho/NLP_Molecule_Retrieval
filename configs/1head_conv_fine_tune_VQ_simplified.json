@@ -16,7 +16,7 @@
     "num_head": 1,
     "dropout_rate": 0.0,
 
-    "fine_tune": true,
+    "fine_tune": false,
 
     "beta": 0.25,
 
