@@ -1,6 +1,6 @@
 {
-    "expt_name": "fine_tune_3_heads_conv_VQ",
-    "log_dir":"fine_tune_3_heads_conv_VQ",
+    "expt_name": "fine_tune_1_heads_conv_VQ_simple",
+    "log_dir":"fine_tune_1_heads_conv_VQ_simple",
     "model_path": "models/oneHead_LinearNLP_fine_tune.py",
   
     "num_node_features": 300,
@@ -8,13 +8,13 @@
     "nhid": 300,
     "graph_hidden_channels": 300,
     "aggregation": "mean",
-    "mlp_layers": 2,
-    "num_embeddings": 10000, 
+    "mlp_layers": 1,
+    "num_embeddings": 5000, 
     "embedding_dim": 256,
     "use_sage": false,
     "use_cheb": false,
-    "num_head": 3,
-    "dropout_rate": 0.1,
+    "num_head": 1,
+    "dropout_rate": 0.0,
 
     "fine_tune": true,
 
@@ -25,8 +25,8 @@
 
     "model_name": "distilbert-base-uncased",
     "VQ": true,
-    "tempText": 0.40,
-    "tempGraph": 0.20,
+    "tempText": 0.08,
+    "tempGraph": 0.08,
 
     "nb_epochs": 50,
     "n_batches_before_break_in_epochs": -1,

@@ -1,6 +1,6 @@
 {
-    "expt_name": "fine_tune_3_heads_conv_VQ",
-    "log_dir":"fine_tune_3_heads_conv_VQ",
+    "expt_name": "fine_tune_1_heads_conv_VQ",
+    "log_dir":"fine_tune_1_heads_conv_VQ",
     "model_path": "models/oneHead_LinearNLP_fine_tune.py",
   
     "num_node_features": 300,
@@ -13,7 +13,7 @@
     "embedding_dim": 256,
     "use_sage": false,
     "use_cheb": false,
-    "num_head": 3,
+    "num_head": 1,
     "dropout_rate": 0.1,
 
     "fine_tune": true,
