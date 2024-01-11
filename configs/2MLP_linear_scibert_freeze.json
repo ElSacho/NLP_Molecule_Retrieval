@@ -1,7 +1,7 @@
 {
-    "expt_name": "inital_models_bs_70",
-    "log_dir":"inital_models_bs_70",
-    "model_path": "models/oneHead.py",
+    "expt_name": "linear_scibert_freeze",
+    "log_dir":"linear_scibert_freeze",
+    "model_path": "models/oneHead_LinearNLP.py",
   
     "num_node_features": 300,
     "nout": 768,
@@ -10,14 +10,14 @@
     "aggregation": "mean",
     "mlp_layers": 2,
 
-    "model_name": "distilbert-base-uncased",
+    "model_name": "allenai/scibert_scivocab_uncased",
     "VQ": false,
+    "num_layers_to_freeze": 4,
+    "print_every": 60,
 
-    "print_every": 50,
-
-    "nb_epochs": 40,
+    "nb_epochs": 200,
     "n_batches_before_break_in_epochs": -1,
-    "batch_size": 70,
+    "batch_size": 60,
     "accumulation_steps": 1,
   
     "learning_rate": 3e-05,

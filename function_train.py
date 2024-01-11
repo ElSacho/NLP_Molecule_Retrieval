@@ -92,18 +92,18 @@ def train_conf(config_path, best_lraps):
             print("Erreur lors du chargement du modèle ou de l'optimiseur :", e)
             raise
     print('Start training')
-    if parameters['epochs_before_freeze'] != -1:
+    if parameters.get('epochs_before_freeze', -1) != -1:
         print(1)
-        best_lraps = train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset)
-    elif getattr(parameters, 'VQ', False):
+        best_lraps = train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = parameters.get("print_every", 1))
+    elif parameters.get('VQ', False):
         print(2)
-        best_lraps = train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
-    elif getattr(parameters, 'accumulation_step', 1) != 1:
+        best_lraps = train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = parameters.get("print_every", 1))
+    elif parameters.get('accumulation_step', 1) != 1:
         print(3)
-        best_lraps = train_after_loading_accumulation(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
+        best_lraps = train_after_loading_accumulation(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = parameters.get("print_every", 1))
     else:
         print(4)
-        best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
+        best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = parameters.get("print_every", 1))
     
     return best_lraps
 

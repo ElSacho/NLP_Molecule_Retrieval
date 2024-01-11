@@ -72,6 +72,9 @@ class TextEncoder(nn.Module):
         nout = parameters['nout']
         self.linear = nn.Linear(self.bert.config.hidden_size, nout)
         self.norm = nn.LayerNorm(nout)
+        num_layers_to_freeze = parameters.get('num_layers_to_freeze', 0)
+        if num_layers_to_freeze != 0:
+            self.freeze_layers(num_layers_to_freeze)
 
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
@@ -79,6 +82,12 @@ class TextEncoder(nn.Module):
         linear_output = self.linear(cls_token_state)
         normalized_output = self.norm(linear_output)
         return normalized_output
+    
+    def freeze_layers(self, num_layers_to_freeze):
+        # Freeze the first 'num_layers_to_freeze' layers
+        for layer in self.bert.encoder.layer[:num_layers_to_freeze]:
+            for param in layer.parameters():
+                param.requires_grad = False
 
 class Model(nn.Module):
     def __init__(self, parameters):

@@ -33,6 +33,7 @@
     "epochs_before_freeze": 100,
     "accumulation_step": 3,
   
+
     "learning_rate": 3e-05,
     "weight_decay": 1.01,
   
