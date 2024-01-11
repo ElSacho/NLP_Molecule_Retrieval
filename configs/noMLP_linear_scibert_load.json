@@ -1,0 +1,27 @@
+{
+  "expt_name": "best_mmodel",
+  "log_dir":"best_mmodel",
+  "model_path": "models/oneHead_LinearNLP.py",
+
+  "num_node_features": 300,
+  "nout": 768,
+  "nhid": 300,
+  "graph_hidden_channels": 300,
+  "mlp_layers": 0,
+  "aggregation": "mean",
+
+  "model_name": "allenai/scibert_scivocab_uncased",
+  "VQ": false,
+  
+  "nb_epochs": 200,
+  "n_batches_before_break_in_epochs": -1,
+  "batch_size": 60,
+  "num_layers_to_freeze": 4,
+  "accumulation_steps": 1,
+  "print_every": 60,
+
+  "learning_rate": 3e-05,
+  "weight_decay": 1.01,
+
+  "load_model_path": "model_checkpoint.pt"
+}

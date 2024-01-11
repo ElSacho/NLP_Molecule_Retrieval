@@ -87,7 +87,7 @@ def train_conf(config_path, best_lraps):
         try : 
             checkpoint = torch.load(parameters['load_model_path'])
             model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         except Exception as e:
             print("Erreur lors du chargement du modèle ou de l'optimiseur :", e)
             raise
