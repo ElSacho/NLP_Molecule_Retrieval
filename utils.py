@@ -10,7 +10,7 @@ import pandas as pd
 import os
 
 
-def calculate_val_lraps(model, val_dataset, val_loader, device, save=True):
+def calculate_val_lraps(model, val_dataset, val_loader, device, save=False):
     graph_embeddings = []
     text_embeddings = []
 
@@ -61,7 +61,7 @@ def calculate_val_lraps(model, val_dataset, val_loader, device, save=True):
 
     return lrap_score
 
-def calculate_val_lraps_VQ(model, val_dataset, val_loader, device, save = True):
+def calculate_val_lraps_VQ(model, val_dataset, val_loader, device, save = False):
     graph_embeddings = []
     text_embeddings = []
 

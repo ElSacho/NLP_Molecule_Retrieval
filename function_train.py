@@ -28,6 +28,13 @@ def contrastive_loss(v1, v2):
   labels = torch.arange(logits.shape[0], device=v1.device)
   return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
 
+BCEL = torch.nn.BCEWithLogitsLoss()
+
+def negative_sampling_contrastive_loss(v1, v2, labels):
+  logits = torch.matmul(v1,torch.transpose(v2, 0, 1))
+  eye = torch.diag_embed(labels).to(v1.device)
+  return BCEL(logits, eye) + BCEL(torch.transpose(logits, 0, 1), eye), logits.diag() > 0
+
 def train(list_config_path):
     best_lraps = 0
     for config_path in list_config_path:
@@ -88,10 +95,10 @@ def train_conf(config_path, best_lraps):
     if parameters['epochs_before_freeze'] != -1:
         print(1)
         best_lraps = train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset)
-    elif parameters['VQ']:
+    elif getattr(parameters, 'VQ', False):
         print(2)
         best_lraps = train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
-    elif parameters['accumulation_step'] != 1:
+    elif getattr(parameters, 'accumulation_step', 1) != 1:
         print(3)
         best_lraps = train_after_loading_accumulation(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps)
     else:
@@ -100,7 +107,7 @@ def train_conf(config_path, best_lraps):
     
     return best_lraps
 
-def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 50):
+def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 1):
     expt_name = parameters['expt_name']
     timestamp = time.strftime("%Y-%m-%d--%H%M")
     writer = SummaryWriter(f'logs/{expt_name}-{timestamp}')
@@ -154,7 +161,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
             
             count_iter += 1
             
-            if count_iter % printEvery == 0:
+            if count_iter % printEvery == 0 and printEvery != 1:
                 time2 = time.time()
                 print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
                                                                             time2 - time1, loss/count_iter))
@@ -183,13 +190,12 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         torch.cuda.empty_cache() # test to liberate memory space
         best_validation_loss = min(best_validation_loss, val_loss)
         best_lraps = max(best_lraps, lraps)
-        print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
         writer.add_scalar('Loss/val', val_loss, epoch)
         writer.add_scalar('Lraps/val', lraps, epoch)
         if best_lraps==lraps:
-            print('lraps loss improoved saving checkpoint...')
+            # print('lraps loss improoved saving checkpoint...')
             save_path = os.path.join('./models', 'model_attention'+str(epoch)+'.pt')
-            
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -198,8 +204,12 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
             'loss': loss,
             }, 'model_checkpoint.pt')
             print('checkpoint saved to: {}'.format(save_path))
-        
+        else :
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
         torch.cuda.empty_cache() # test to liberate memory space
+        
+
+        
     return best_lraps
 
 def train_after_loading_accumulation(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 50):
@@ -313,7 +323,7 @@ def train_after_loading_accumulation(model, optimizer, nb_epochs, train_loader, 
         torch.cuda.empty_cache() # test to liberate memory space
     return best_lraps
 
-def train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = 50):
+def train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = 1):
     expt_name = parameters['expt_name']
     timestamp = time.strftime("%Y-%m-%d--%H%M")
     writer = SummaryWriter(f'logs/{expt_name}-{timestamp}')
@@ -333,56 +343,59 @@ def train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loade
     writer.add_hparams(hparam_dict=parameters, metric_dict={})
     torch.cuda.empty_cache() # test to liberate memory space
     for epoch in range(nb_epochs):
-        print('-----EPOCH{}-----'.format(epoch+1))
+        # print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
         if epoch == parameters['epochs_before_freeze']:
             train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
             model.text_encoder.train_mode(False)
         count_iter = 0
         for batch in train_loader:
-            input_ids = batch.input_ids
-            batch.pop('input_ids')
-            attention_mask = batch.attention_mask
-            batch.pop('attention_mask')
-            graph_batch = batch
+            try :
+                input_ids = batch.input_ids
+                batch.pop('input_ids')
+                attention_mask = batch.attention_mask
+                batch.pop('attention_mask')
+                graph_batch = batch
 
-            # Move data to device (e.g., GPU)
-            graph_batch = graph_batch.to(device)
-            input_ids = input_ids.to(device)
-            attention_mask = attention_mask.to(device)
+                # Move data to device (e.g., GPU)
+                graph_batch = graph_batch.to(device)
+                input_ids = input_ids.to(device)
+                attention_mask = attention_mask.to(device)
 
-            # Forward pass through the model
-            quantized_graph, quantized_text, quantization_loss_graph, quantization_loss_text = model(graph_batch, input_ids, attention_mask)
+                # Forward pass through the model
+                quantized_graph, quantized_text, quantization_loss_graph, quantization_loss_text = model(graph_batch, input_ids, attention_mask)
 
-            # Calculate Contrastive Loss
-            current_loss = contrastive_loss(quantized_graph, quantized_text)
+                # Calculate Contrastive Loss
+                current_loss = contrastive_loss(quantized_graph, quantized_text)
 
-            # Include Quantization Loss
-            # You can adjust the weight of these losses if necessary
-            lambda_quantization = parameters['lambda_quantization']  # Example weight for quantization loss
-            # total_loss = current_loss
-            total_loss = current_loss + lambda_quantization * (quantization_loss_graph + quantization_loss_text)
-            # total_loss = total_loss.mean()
-            # Backpropagation
-            optimizer.zero_grad()
-            total_loss.backward()
-            optimizer.step()
+                # Include Quantization Loss
+                # You can adjust the weight of these losses if necessary
+                lambda_quantization = parameters['lambda_quantization']  # Example weight for quantization loss
+                # total_loss = current_loss
+                total_loss = current_loss + lambda_quantization * (quantization_loss_graph + quantization_loss_text)
+                # total_loss = total_loss.mean()
+                # Backpropagation
+                optimizer.zero_grad()
+                total_loss.backward()
+                optimizer.step()
 
-            # Accumulate the losses for logging or averaging
-            loss += total_loss.item()
-            cur_loss += current_loss.item()
-            vq_loss += (lambda_quantization * (quantization_loss_graph + quantization_loss_text)).item()
-            count_iter += 1
+                # Accumulate the losses for logging or averaging
+                loss += total_loss.item()
+                cur_loss += current_loss.item()
+                vq_loss += (lambda_quantization * (quantization_loss_graph + quantization_loss_text)).item()
+                count_iter += 1
             
-            if count_iter % printEvery == 0:
-                time2 = time.time()
-                print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
-                                                                            time2 - time1, loss/count_iter))
-                print("And the loss decompose in : ", cur_loss/count_iter, 'and ', vq_loss/count_iter)
+                if count_iter % printEvery == 0 and printEvery!= 1:
+                    time2 = time.time()
+                    print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
+                                                                                time2 - time1, loss/count_iter))
+                    print("And the loss decompose in : ", cur_loss/count_iter, 'and ', vq_loss/count_iter)
 
-            if count_iter > parameters['n_batches_before_break_in_epochs'] and parameters['n_batches_before_break_in_epochs'] != -1:
-                break
-            torch.cuda.empty_cache() # test to liberate memory space
+                if count_iter > parameters['n_batches_before_break_in_epochs'] and parameters['n_batches_before_break_in_epochs'] != -1:
+                    break
+                torch.cuda.empty_cache() # test to liberate memory space
+            except:
+                pass
         loss = 0
         cur_loss = 0
         vq_loss = 0
@@ -417,11 +430,12 @@ def train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loade
         torch.cuda.empty_cache() # test to liberate memory space
         best_validation_loss = min(best_validation_loss, val_loss)
         best_lraps = max(best_lraps, lraps)
-        print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
+        
         writer.add_scalar('Loss/val', val_loss, epoch)
         writer.add_scalar('Lraps/val', lraps, epoch)
         if best_lraps==lraps:
-            print('lraps loss improoved saving checkpoint...')
+            time2 = time.time()
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS IMPROVED:', lraps, "time : ", time2 - time1, ' s')
             save_path = os.path.join('./models', 'model_attention'+str(epoch)+'.pt')
             
             torch.save({
@@ -432,6 +446,8 @@ def train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loade
             'loss': loss,
             }, 'model_checkpoint.pt')
             print('checkpoint saved to: {}'.format(save_path))
+        else:
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
         
         torch.cuda.empty_cache() # test to liberate memory space
     return best_lraps

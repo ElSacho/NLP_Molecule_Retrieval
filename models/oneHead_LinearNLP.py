@@ -39,8 +39,9 @@ class GraphEncoderOneHead(nn.Module):
         # Linear layers
         self.mol_hidden1 = nn.Linear(graph_hidden_channels, nhid)
         self.mol_hiddens = []
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         for _ in range(mlp_layers):
-            self.mol_hiddens.append(nn.Linear(nhid, nhid))
+            self.mol_hiddens.append(nn.Linear(nhid, nhid).to(device))
         self.mol_hidden2 = nn.Linear(nhid, nout)
 
     def forward(self, graph_batch):

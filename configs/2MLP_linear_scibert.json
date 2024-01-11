@@ -13,9 +13,9 @@
     "model_name": "allenai/scibert_scivocab_uncased",
     "VQ": false,
 
-    "nb_epochs": 20,
+    "nb_epochs": 200,
     "n_batches_before_break_in_epochs": -1,
-    "batch_size": 12,
+    "batch_size": 32,
     "accumulation_steps": 1,
   
     "learning_rate": 3e-05,
