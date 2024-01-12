@@ -1,6 +1,6 @@
 {
-    "expt_name": "discriminator_distil_freeze_decay_5",
-    "log_dir":"discriminator_distil_freeze_decay_5",
+    "expt_name": "discriminator_distil_freeze_decay_20",
+    "log_dir":"discriminator_distil_freeze_decay_20",
     "model_path": "models/oneHead_LinearNLP.py",
 
     "use_discriminator": true,
