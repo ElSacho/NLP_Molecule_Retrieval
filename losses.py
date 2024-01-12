@@ -161,3 +161,70 @@ def wgan_gp_loss(D, real_samples, fake_samples, lambda_gp):
 
     # Return the total loss
     return wgan_loss + lambda_gp * gradient_penalty
+
+def triplet_loss_sim(x_graph, x_text, margin):
+    hard_negative_triplets = create_hard_negative_triplets(x_graph, x_text)
+    # Calcul de la perte pour chaque triplet
+    # print('triplet : ',hard_negative_triplets)
+    hard_negative_losses = [triplet_loss_cosine(anchor.unsqueeze(0), positive.unsqueeze(0), negative.unsqueeze(0), margin=margin) 
+                            for anchor, positive, negative in hard_negative_triplets]
+
+    # Calcul de la perte moyenne pour les triplets avec négatifs difficiles
+    mean_hard_negative_loss = torch.mean(torch.stack(hard_negative_losses))
+    return mean_hard_negative_loss
+    
+def create_hard_negative_triplets(x_graph, x_text):
+    """
+    Create triplets (anchor, positive, negative) with hard negatives based on cosine similarity.
+
+    Parameters:
+    x_graph (Tensor): The graph embeddings.
+    x_text (Tensor): The text embeddings.
+
+    Returns:
+    List[Tuple[Tensor, Tensor, Tensor]]: The list of triplets.
+    """
+    n = x_graph.size(0)  # Taille du batch
+    cos_sim = torch.nn.CosineSimilarity(dim=1)
+    triplets = []
+
+    for i in range(n):
+        anchor = x_graph[i]
+        positive = x_text[i]
+
+        # Calculer la similarité cosinus entre l'ancrage et tous les exemples de x_text
+        similarities = cos_sim(anchor.unsqueeze(0), x_text)
+
+        # Ignorer la similarité avec l'exemple positif correspondant
+        similarities[i] = -1
+
+        # Trouver l'indice de l'exemple négatif le plus difficile
+        negative_index = torch.argmax(similarities).item()
+        negative = x_text[negative_index]
+
+        triplets.append((anchor, positive, negative))
+
+    return triplets
+    
+def triplet_loss_cosine(anchor, positive, negative, margin):
+    """
+    Compute the triplet loss using cosine similarity.
+
+    Parameters:
+    anchor (Tensor): The anchor embeddings.
+    positive (Tensor): The positive embeddings.
+    negative (Tensor): The negative embeddings.
+    margin (float): The margin value for the loss calculation.
+
+    Returns:
+    Tensor: The computed triplet loss.
+    """
+    # Calcul de la similarité cosinus
+    cos_sim = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+    pos_sim = cos_sim(anchor, positive)
+    neg_sim = cos_sim(anchor, negative)
+
+    # Calcul de la triplet loss
+    loss = torch.mean(torch.clamp(neg_sim - pos_sim + margin, min=0.0))
+
+    return loss

@@ -1,13 +1,16 @@
 {
-    "expt_name": "discriminator_distil_lamba_0",
-    "log_dir":"discriminator_distil_lamba_0",
+    "expt_name": "discriminator_distil_freeze_decay",
+    "log_dir":"discriminator_distil_freeze_decay",
     "model_path": "models/oneHead_LinearNLP.py",
 
     "use_discriminator": true,
+    "AMAN_freeze": true,
     "lambda_gp": 10,  
+    "batch_size_add" : 20,
+    "epochs_decay" : 15,
 
     "num_node_features": 300,
-    "nout": 768,
+    "nout": 300,
     "nhid": 300,
     "graph_hidden_channels": 300,
     "aggregation": "mean",
@@ -16,7 +19,7 @@
     "model_name": "distilbert-base-uncased",
     "VQ": false,
 
-    "lambda_param" : 0.0,
+    "lambda_param" : 2e-2,
     "margin_delta" : 0.3,
 
     "nb_epochs": 200,

@@ -7,7 +7,7 @@
     "lambda_gp": 10,  
 
     "num_node_features": 300,
-    "nout": 768,
+    "nout": 300,
     "nhid": 300,
     "graph_hidden_channels": 300,
     "aggregation": "mean",
@@ -16,7 +16,7 @@
     "model_name": "distilbert-base-uncased",
     "VQ": false,
 
-    "lambda_param" : 0.25,
+    "lambda_param" : 2e-2,
     "margin_delta" : 0.3,
 
     "nb_epochs": 200,

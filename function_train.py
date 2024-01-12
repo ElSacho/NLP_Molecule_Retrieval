@@ -20,7 +20,7 @@ import importlib.util
 import sys
 
 from models.disciminator import Discriminator
-from losses import compute_triplet_loss, wgan_gp_loss
+from losses import compute_triplet_loss, wgan_gp_loss, triplet_loss_sim
 from torchvision import datasets, transforms
 
 import json
@@ -98,13 +98,20 @@ def train_conf(config_path, best_lraps):
             raise
     
     print('Start training')
-    if parameters.get('use_discriminator', False):
+    if parameters.get('AMAN_freeze', False):
+        print("you are using a discriminator with freeze decay")
+        discriminator = Discriminator(parameters)
+        discriminator_optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
+                                    betas=(0.9, 0.999),
+                                    weight_decay=weight_decay)
+        best_lraps = train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = parameters.get("print_every", 1))
+    elif parameters.get('use_discriminator', False):
         print("you are using a discriminator")
         discriminator = Discriminator(parameters)
         discriminator_optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                                     betas=(0.9, 0.999),
                                     weight_decay=weight_decay)
-        best_lraps = train_after_loading_discriminator(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = parameters.get("print_every", 1))
+        best_lraps = train_after_loading_AMAN(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = parameters.get("print_every", 1))
     elif parameters.get('epochs_before_freeze', -1) != -1:
         print(1)
         best_lraps = train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = parameters.get("print_every", 1))
@@ -504,13 +511,138 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
                                     attention_mask.to(device))
             
             # triplet_loss = compute_triplet_loss(x_graph, x_text, discriminator, margin_delta)
-            current_loss = contrastive_loss(x_graph, x_text)  
+            # Pour le discriminateur
+            adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
+            # Pour le modèle principal
+            current_loss = contrastive_loss(x_graph, x_text)
+            total_loss = lambda_param * adv_loss + current_loss
+            optimizer.zero_grad()  # Réinitialisez les gradients du modèle principal
+            total_loss.backward(retain_graph=True)  # Rétropropagation pour total_loss, en conservant le graphe
+            optimizer.step()  # Mise à jour des poids du modèle principal
+
+            # Pour le discriminateur
+            discriminator_optimizer.zero_grad()  # Réinitialisez les gradients du discriminateur
+            adv_loss.backward()  # Rétropropagation uniquement pour adv_loss
+            discriminator_optimizer.step()  # Mise à jour des poids du discriminateur
+
+            
+            loss += total_loss.item()
+            
+            count_iter += 1
+            
+            if count_iter % printEvery == 0 and printEvery != 1:
+                time2 = time.time()
+                print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
+                                                                            time2 - time1, loss/count_iter))
+            torch.cuda.empty_cache() # test to liberate memory space
+        loss = 0
+        writer.add_scalar('Loss/train', loss, epoch)
+        
+        model.eval()
+        val_loss = 0        
+        for batch in val_loader:
+            input_ids = batch.input_ids
+            batch.pop('input_ids')
+            attention_mask = batch.attention_mask
+            batch.pop('attention_mask')
+            graph_batch = batch
+            x_graph, x_text = model(graph_batch.to(device), 
+                                    input_ids.to(device), 
+                                    attention_mask.to(device))
+
+            # Compute adversarial loss
+            # Pour le discriminateur
+            # Pour le modèle principal
+            adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
+            current_loss = contrastive_loss(x_graph, x_text)
+            total_loss = lambda_param * adv_loss + current_loss
+            optimizer.zero_grad()  # Réinitialisez les gradients du modèle principal
+            total_loss.backward(retain_graph=True)  # Rétropropagation pour total_loss, en conservant le graphe
+            optimizer.step()  # Mise à jour des poids du modèle principal
+
+            # Pour le discriminateur
+            discriminator_optimizer.zero_grad()  # Réinitialisez les gradients du discriminateur
+            adv_loss.backward()  # Rétropropagation uniquement pour adv_loss
+            discriminator_optimizer.step()  # Mise à jour des poids du discriminateur
+
+            
+            val_loss += total_loss.item()
+            torch.cuda.empty_cache() # test to liberate memory space
+        lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
+        torch.cuda.empty_cache() # test to liberate memory space
+        best_validation_loss = min(best_validation_loss, val_loss)
+        best_lraps = max(best_lraps, lraps)
+        writer.add_scalar('Loss/val', val_loss, epoch)
+        writer.add_scalar('Lraps/val', lraps, epoch)
+        if best_lraps==lraps:
+            # print('lraps loss improoved saving checkpoint...')
+            save_path = os.path.join('./models', 'model_attention'+str(epoch)+'.pt')
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
+            torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
+            'validation_accuracy': val_loss,
+            'loss': loss,
+            }, 'model_checkpoint.pt')
+            print('checkpoint saved to: {}'.format(save_path))
+        else :
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
+        torch.cuda.empty_cache() # test to liberate memory space
+        
+    return best_lraps
+
+def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = 1):
+    expt_name = parameters['expt_name']
+    timestamp = time.strftime("%Y-%m-%d--%H%M")
+    writer = SummaryWriter(f'logs/{expt_name}-{timestamp}')
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    epoch = 0
+    loss = 0
+
+    count_iter = 0
+    time1 = time.time()
+
+    best_validation_loss = 1_000_000
+    
+    # optimizer = optim.SGD(model.parameters(), lr=parameters['learning_rate'], momentum=0.9)
+    
+    lambda_param = parameters['lambda_param']
+    margin_delta = parameters['margin_delta']
+
+    writer.add_hparams(hparam_dict=parameters, metric_dict={})
+    cmt = 1
+    torch.cuda.empty_cache() # test to liberate memory space
+    for epoch in range(nb_epochs):
+        if epoch == cmt*parameters['epochs_decay']:
+            train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+            val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+            model.text_encoder.freeze_layers(cmt)
+            cmt += 1
+        print('-----EPOCH{}-----'.format(epoch+1))
+        model.train()
+        count_iter = 0
+        for batch in train_loader:
+            input_ids = batch.input_ids
+            batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
+            attention_mask = batch.attention_mask
+            batch.pop('attention_mask')
+            graph_batch = batch
+            
+            x_graph, x_text = model(graph_batch.to(device), 
+                                    input_ids.to(device), 
+                                    attention_mask.to(device))
+            
+            triplet_loss = triplet_loss_sim(x_graph, x_text, margin_delta)
+            current_loss = contrastive_loss(x_graph, x_text)
             # Compute adversarial loss
             adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
 
             # Combined loss
-            total_loss = lambda_param * adv_loss + current_loss
-            # print("losses triplet :", current_loss.item(), " adv :", adv_loss.item(), "for a total loss :", total_loss.item())
+            total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
+            # print("losses triplet :",triplet_loss.item(), " adv :", adv_loss.item(), "contras :", current_loss.item())
             
             # Zero gradients for optimizer and discriminator optimizer
             optimizer.zero_grad()
@@ -544,13 +676,15 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
             x_graph, x_text = model(graph_batch.to(device), 
                                     input_ids.to(device), 
                                     attention_mask.to(device))
+            
+            triplet_loss = triplet_loss_sim(x_graph, x_text, margin_delta)
 
             # Compute adversarial loss
             adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
-            current_loss = contrastive_loss(x_graph, x_text)  
+            current_loss = contrastive_loss(x_graph, x_text)
 
             # Combined loss
-            total_loss = adv_loss + current_loss
+            total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
             
             # Zero gradients for optimizer and discriminator optimizer
             optimizer.zero_grad()
@@ -586,6 +720,9 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
         torch.cuda.empty_cache() # test to liberate memory space
         
     return best_lraps
+
+
+
 
 def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 1):
     expt_name = parameters['expt_name']
@@ -624,14 +761,14 @@ def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_opti
                                     input_ids.to(device), 
                                     attention_mask.to(device))
             
-            triplet_loss = compute_triplet_loss(x_graph, x_text, discriminator, margin_delta)
-            current_loss = contrastive_loss(graph_batch, x_text)
+            triplet_loss = triplet_loss_sim(x_graph, x_text, margin_delta)
+            current_loss = contrastive_loss(x_graph, x_text)
             # Compute adversarial loss
             adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
 
             # Combined loss
-            total_loss = triplet_loss + lambda_param * (adv_loss + current_loss)
-            # print("losses triplet :",triplet_loss.item(), " adv :", adv_loss)
+            total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
+            # print("losses triplet :",triplet_loss.item(), " adv :", adv_loss.item(), "contras :", current_loss.item())
             
             # Zero gradients for optimizer and discriminator optimizer
             optimizer.zero_grad()
@@ -665,14 +802,15 @@ def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_opti
             x_graph, x_text = model(graph_batch.to(device), 
                                     input_ids.to(device), 
                                     attention_mask.to(device))
-            triplet_loss = compute_triplet_loss(x_graph, x_text, discriminator, margin_delta)
+            
+            triplet_loss = triplet_loss_sim(x_graph, x_text, margin_delta)
 
             # Compute adversarial loss
             adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
-            current_loss = contrastive_loss(graph_batch, x_text)
+            current_loss = contrastive_loss(x_graph, x_text)
 
             # Combined loss
-            total_loss = triplet_loss + lambda_param * (adv_loss + current_loss)
+            total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
             
             # Zero gradients for optimizer and discriminator optimizer
             optimizer.zero_grad()

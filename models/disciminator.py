@@ -6,9 +6,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         # Define the architecture of the discriminator
         self.main = nn.Sequential(
-            nn.Linear(parameters['nout'], 512),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Linear(512, 256),
+            nn.Linear(parameters['nout'], 256),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(256, 128),
             nn.LeakyReLU(0.2, inplace=True),
