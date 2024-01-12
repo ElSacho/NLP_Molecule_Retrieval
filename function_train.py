@@ -20,7 +20,7 @@ import importlib.util
 import sys
 
 from models.disciminator import Discriminator
-from losses import adversarial_loss, compute_triplet_loss
+from losses import compute_triplet_loss, wgan_gp_loss
 from torchvision import datasets, transforms
 
 import json
@@ -186,6 +186,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         writer.add_scalar('Loss/train', loss, epoch)
         
         model.eval()
+        torch.cuda.empty_cache()
         val_loss = 0        
         for batch in val_loader:
             input_ids = batch.input_ids
@@ -206,13 +207,13 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         writer.add_scalar('Loss/val', val_loss, epoch)
         writer.add_scalar('Lraps/val', lraps, epoch)
         if best_lraps==lraps:
-            # print('lraps loss improoved saving checkpoint...')
+            print('lraps loss improoved saving checkpoint...')
             save_path = os.path.join('./models', 'model_attention'+str(epoch)+'.pt')
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
             }, 'model_checkpoint.pt')
@@ -327,7 +328,7 @@ def train_after_loading_accumulation(model, optimizer, nb_epochs, train_loader, 
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
             }, 'model_checkpoint.pt')
@@ -454,7 +455,7 @@ def train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loade
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
             }, 'model_checkpoint.pt')
@@ -464,7 +465,6 @@ def train_after_loading_VQ_epochs_break(model, optimizer, nb_epochs, train_loade
         
         torch.cuda.empty_cache() # test to liberate memory space
     return best_lraps
-
 
 def train_after_loading_discriminator(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 1):
     expt_name = parameters['expt_name']
@@ -506,11 +506,11 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
             # triplet_loss = compute_triplet_loss(x_graph, x_text, discriminator, margin_delta)
             current_loss = contrastive_loss(x_graph, x_text)  
             # Compute adversarial loss
-            adv_loss = adversarial_loss(discriminator, x_graph, x_text)
+            adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
 
             # Combined loss
-            total_loss = adv_loss + current_loss
-            # print("losses triplet :",triplet_loss.item(), " adv :", adv_loss)
+            total_loss = lambda_param * adv_loss + current_loss
+            # print("losses triplet :", current_loss.item(), " adv :", adv_loss.item(), "for a total loss :", total_loss.item())
             
             # Zero gradients for optimizer and discriminator optimizer
             optimizer.zero_grad()
@@ -546,7 +546,7 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
                                     attention_mask.to(device))
 
             # Compute adversarial loss
-            adv_loss = adversarial_loss(discriminator, x_graph, x_text)
+            adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
             current_loss = contrastive_loss(x_graph, x_text)  
 
             # Combined loss
@@ -563,7 +563,7 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
             
             val_loss += total_loss.item()
             torch.cuda.empty_cache() # test to liberate memory space
-        lraps = calculate_val_lraps(model, discriminator, val_dataset, val_loader, device)
+        lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
         torch.cuda.empty_cache() # test to liberate memory space
         best_validation_loss = min(best_validation_loss, val_loss)
         best_lraps = max(best_lraps, lraps)
@@ -576,7 +576,7 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
             }, 'model_checkpoint.pt')
@@ -586,8 +586,6 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
         torch.cuda.empty_cache() # test to liberate memory space
         
     return best_lraps
-
-
 
 def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 1):
     expt_name = parameters['expt_name']
@@ -687,7 +685,7 @@ def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_opti
             
             val_loss += total_loss.item()
             torch.cuda.empty_cache() # test to liberate memory space
-        lraps = calculate_val_lraps_AMAN(model, discriminator, val_dataset, val_loader, device)
+        lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
         torch.cuda.empty_cache() # test to liberate memory space
         best_validation_loss = min(best_validation_loss, val_loss)
         best_lraps = max(best_lraps, lraps)
@@ -700,7 +698,7 @@ def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_opti
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
             }, 'model_checkpoint.pt')
@@ -822,7 +820,7 @@ def train_after_loading_VQ(model, optimizer, nb_epochs, train_loader, val_loader
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
             }, 'model_checkpoint.pt')

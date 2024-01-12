@@ -1,6 +1,6 @@
 {
-  "expt_name": "best_mmodel",
-  "log_dir":"best_mmodel",
+  "expt_name": "best_mmodel_2",
+  "log_dir":"best_mmodel_2",
   "model_path": "models/oneHead_LinearNLP.py",
 
   "num_node_features": 300,
@@ -15,8 +15,8 @@
   
   "nb_epochs": 200,
   "n_batches_before_break_in_epochs": -1,
-  "batch_size": 60,
-  "num_layers_to_freeze": 4,
+  "batch_size": 70,
+  "num_layers_to_freeze": 5,
   "accumulation_steps": 1,
   "print_every": 60,
 

@@ -90,31 +90,7 @@ def compute_triplet_loss2(x_graph, x_text, margin):
 
     return total_loss
 
-
-# def cosine_similarity(x1, x2):
-#     return F.cosine_similarity(x1, x2, dim=-1)
-
-# def compute_triplet_loss(anchor, positive, negative, margin):
-#     """
-#     Computes the bi-directional triplet loss.
-
-#     :param anchor: Embeddings for the anchor samples.
-#     :param positive: Embeddings for the positive samples.
-#     :param negative: Embeddings for the negative samples.
-#     :param margin: Margin parameter delta for the triplet loss.
-#     :return: Triplet loss value.
-#     """
-#     # Calculate cosine similarities
-#     pos_similarity = cosine_similarity(anchor, positive)
-#     neg_similarity = cosine_similarity(anchor, negative)
-
-#     # Triplet loss calculation
-#     triplet_loss = torch.clamp(neg_similarity - pos_similarity + margin, min=0)
-
-#     # Bi-directional loss (consider both directions)
-#     return triplet_loss.mean()
-
-def adversarial_loss(discriminator, x_graph, x_text):
+def adversarial_loss2(discriminator, x_graph, x_text): 
     """
     Compute the adversarial loss for the discriminator and the generator.
 
@@ -143,3 +119,45 @@ def adversarial_loss(discriminator, x_graph, x_text):
     total_loss = real_loss + fake_loss
 
     return total_loss
+
+def compute_gradient_penalty(D, real_samples, fake_samples):
+    """Calculates the gradient penalty loss for WGAN GP"""
+    # Random weight term for interpolation between real and fake samples
+    alpha = torch.rand(real_samples.size(0), 1)
+    alpha = alpha.expand_as(real_samples).to(real_samples.device)
+
+    # Interpolate between real and fake data
+    interpolated = alpha * real_samples + (1 - alpha) * fake_samples
+    interpolated.requires_grad_(True)
+
+    # Calculate probability for interpolated examples
+    prob_interpolated = D(interpolated)
+
+    # Calculate gradients of probabilities with respect to examples
+    gradients = torch.autograd.grad(outputs=prob_interpolated, inputs=interpolated,
+                                    grad_outputs=torch.ones(prob_interpolated.size()).to(real_samples.device),
+                                    create_graph=True, retain_graph=True, only_inputs=True)[0]
+
+    # Gradients have shape (batch_size, num_features), so flatten to compute norm
+    gradients = gradients.view(gradients.size(0), -1)
+
+    # Calculate the L2 norm of the gradients
+    gradient_norm = torch.sqrt(torch.sum(gradients ** 2, dim=1) + 1e-12)
+
+    # Return gradient penalty
+    return ((gradient_norm - 1) ** 2).mean()
+
+def wgan_gp_loss(D, real_samples, fake_samples, lambda_gp):
+    """Calculates the WGAN-GP loss"""
+    # Calculate probabilities on real and fake data
+    real_prob = D(real_samples)
+    fake_prob = D(fake_samples)
+
+    # Calculate the WGAN loss
+    wgan_loss = fake_prob.mean() - real_prob.mean()
+
+    # Calculate gradient penalty
+    gradient_penalty = compute_gradient_penalty(D, real_samples, fake_samples)
+
+    # Return the total loss
+    return wgan_loss + lambda_gp * gradient_penalty

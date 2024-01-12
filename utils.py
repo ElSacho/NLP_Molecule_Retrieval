@@ -38,9 +38,26 @@ def calculate_val_lraps_AMAN(model, discriminator, val_dataset, val_loader, devi
     # Calcul de la similarité cosinus entre les embeddings
     
     similarity = cosine_similarity(text_embeddings_flat, graph_embeddings_flat)
+    
+    top_k_indices = np.argsort(-similarity, axis=1)[:, :10]  # Get top 10 indices for each item
+
+    adjusted_similarity = np.copy(similarity)
+
+    for i in range(similarity.shape[0]):  # Iterate over each item
+        for j in range(10):  # Iterate over top 10 closest points
+            index = top_k_indices[i, j]
+            
+            # Create pairs for discriminator evaluation
+            text_emb = text_embeddings_flat[i]
+            graph_emb = graph_embeddings_flat[index]
+
+            # Convert to tensor and pass through discriminator
+            discriminator_score = discriminator(torch.tensor(text_emb), torch.tensor(graph_emb)).item()
+            
+            # Adjust the similarity score
+            adjusted_similarity[i, index] -= discriminator_score
 
     # Calcul du LRAPS
-    
     lrap_score = label_ranking_average_precision_score(true_labels, similarity)
     
     if save:

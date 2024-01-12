@@ -4,7 +4,8 @@
     "model_path": "models/oneHead_LinearNLP.py",
 
     "use_discriminator": true,
-  
+    "lambda_gp": 10,  
+
     "num_node_features": 300,
     "nout": 768,
     "nhid": 300,
@@ -15,11 +16,11 @@
     "model_name": "distilbert-base-uncased",
     "VQ": false,
 
-    "lambda_param" : 4e-03,
+    "lambda_param" : 0.25,
     "margin_delta" : 0.3,
 
     "nb_epochs": 200,
-    "batch_size": 70,
+    "batch_size": 100,
     "accumulation_steps": 1,
     "print_every": 50,
   
