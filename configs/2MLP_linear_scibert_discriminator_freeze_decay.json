@@ -1,0 +1,34 @@
+{
+    "expt_name": "discriminator_scibert_freeze_decay",
+    "log_dir":"discriminator_scibert_freeze_decay",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "use_discriminator": true,
+    "AMAN_freeze": true,
+    "lambda_gp": 10,  
+    "batch_size_add" : 20,
+    "epochs_decay" : 15,
+
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "aggregation": "mean",
+    "mlp_layers": 2,
+
+    "model_name": "allenai/scibert_scivocab_uncased",
+    "VQ": false,
+
+    "lambda_param" : 2e-2,
+    "margin_delta" : 0.3,
+
+    "nb_epochs": 200,
+    "batch_size": 60,
+    "accumulation_steps": 1,
+    "print_every": 50,
+  
+    "learning_rate": 1e-04,
+    "weight_decay": 1.01,
+  
+    "load_model_path": "None"
+  }

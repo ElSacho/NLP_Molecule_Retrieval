@@ -104,6 +104,9 @@ def train_conf(config_path, best_lraps):
         discriminator_optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                                     betas=(0.9, 0.999),
                                     weight_decay=weight_decay)
+        if parameters['load_model_path'] != "None":
+            checkpoint_w = torch.load("discriminator_checkpoint.pt")
+            discriminator.load_state_dict(checkpoint_w['model_state_dict'])
         best_lraps = train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = parameters.get("print_every", 1))
     elif parameters.get('use_discriminator', False):
         print("you are using a discriminator")
@@ -111,6 +114,9 @@ def train_conf(config_path, best_lraps):
         discriminator_optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                                     betas=(0.9, 0.999),
                                     weight_decay=weight_decay)
+        if parameters['load_model_path'] != "None":
+            checkpoint_w = torch.load("discriminator_checkpoint.pt")
+            discriminator.load_state_dict(checkpoint_w['model_state_dict'])
         best_lraps = train_after_loading_AMAN(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = parameters.get("print_every", 1))
     elif parameters.get('epochs_before_freeze', -1) != -1:
         print(1)
@@ -556,16 +562,6 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
             adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
             current_loss = contrastive_loss(x_graph, x_text)
             total_loss = lambda_param * adv_loss + current_loss
-            optimizer.zero_grad()  # Réinitialisez les gradients du modèle principal
-            total_loss.backward(retain_graph=True)  # Rétropropagation pour total_loss, en conservant le graphe
-            optimizer.step()  # Mise à jour des poids du modèle principal
-
-            # Pour le discriminateur
-            discriminator_optimizer.zero_grad()  # Réinitialisez les gradients du discriminateur
-            adv_loss.backward()  # Rétropropagation uniquement pour adv_loss
-            discriminator_optimizer.step()  # Mise à jour des poids du discriminateur
-
-            
             val_loss += total_loss.item()
             torch.cuda.empty_cache() # test to liberate memory space
         lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
@@ -624,10 +620,14 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
     torch.cuda.empty_cache() # test to liberate memory space
     for epoch in range(nb_epochs):
         if epoch == cmt*parameters['epochs_decay']:
-            train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-            val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-            model.text_encoder.freeze_layers(cmt)
+            try:
+                model.text_encoder.freeze_layers(cmt)
+                train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+            except:
+                print("The model is fully freezed")
             cmt += 1
+            print('Freezed', cmt,'layers and batch size of :',parameters['batch_size'] + parameters['batch_size_add']*cmt )
         print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
         count_iter = 0
@@ -692,16 +692,6 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
 
             # Combined loss
             total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
-            
-            # Zero gradients for optimizer and discriminator optimizer
-            optimizer.zero_grad()
-            discriminator_optimizer.zero_grad()
-
-            # Backward pass and optimizers step
-            total_loss.backward()
-            optimizer.step()
-            discriminator_optimizer.step()
-            
             val_loss += total_loss.item()
             torch.cuda.empty_cache() # test to liberate memory space
         lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
