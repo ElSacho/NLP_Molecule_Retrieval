@@ -1,6 +1,6 @@
 {
-    "expt_name": "discriminator_distil",
-    "log_dir":"discriminator_distil",
+    "expt_name": "discriminator_scibert",
+    "log_dir":"discriminator_scibert",
     "model_path": "models/oneHead_LinearNLP.py",
 
     "use_discriminator": true,
@@ -20,7 +20,7 @@
     "margin_delta" : 0.3,
 
     "nb_epochs": 200,
-    "batch_size": 120,
+    "batch_size": 60,
     "accumulation_steps": 1,
     "print_every": 50,
   

@@ -586,6 +586,13 @@ def train_after_loading_discriminator(model, discriminator, optimizer, discrimin
             'loss': loss,
             }, 'model_checkpoint.pt')
             print('checkpoint saved to: {}'.format(save_path))
+            torch.save({
+            'epoch': epoch,
+            'model_state_dict': discriminator.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
+            'validation_accuracy': val_loss,
+            'loss': loss,
+            }, 'discriminator_checkpoint.pt')
         else :
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
         torch.cuda.empty_cache() # test to liberate memory space
@@ -715,6 +722,17 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
             'loss': loss,
             }, 'model_checkpoint.pt')
             print('checkpoint saved to: {}'.format(save_path))
+            save_path = os.path.join('./models', 'model_attention'+str(epoch)+'.pt')
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
+            torch.save({
+            'epoch': epoch,
+            'model_state_dict': discriminator.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
+            'validation_accuracy': val_loss,
+            'loss': loss,
+            }, 'discriminator_checkpoint.pt')
+            # print('checkpoint saved to: {}'.format(save_path))
+            
         else :
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
         torch.cuda.empty_cache() # test to liberate memory space
