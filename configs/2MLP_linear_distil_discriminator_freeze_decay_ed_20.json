@@ -6,8 +6,9 @@
     "use_discriminator": true,
     "AMAN_freeze": true,
     "lambda_gp": 10,  
-    "batch_size_add" : 20,
-    "epochs_decay" : 5,
+    "batch_size_add" : 30,
+    "last_batch_size": 300,
+    "epochs_decay" : 20,
 
     "num_node_features": 300,
     "nout": 300,

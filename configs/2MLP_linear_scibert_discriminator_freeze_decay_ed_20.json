@@ -7,7 +7,8 @@
     "AMAN_freeze": true,
     "lambda_gp": 10,  
     "batch_size_add" : 20,
-    "epochs_decay" : 5,
+    "last_batch_size": 300,
+    "epochs_decay" : 20,
 
     "num_node_features": 300,
     "nout": 300,
@@ -16,14 +17,14 @@
     "aggregation": "mean",
     "mlp_layers": 2,
 
-    "model_name": "distilbert-base-uncased",
+    "model_name": "allenai/scibert_scivocab_uncased",
     "VQ": false,
 
     "lambda_param" : 2e-2,
     "margin_delta" : 0.3,
 
     "nb_epochs": 200,
-    "batch_size": 100,
+    "batch_size": 60,
     "accumulation_steps": 1,
     "print_every": 50,
   

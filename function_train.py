@@ -92,6 +92,7 @@ def train_conf(config_path, best_lraps):
         try : 
             checkpoint = torch.load(parameters['load_model_path'])
             model.load_state_dict(checkpoint['model_state_dict'])
+            print("weight loaded")
             # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         except Exception as e:
             print("Erreur lors du chargement du modèle ou de l'optimiseur :", e)
@@ -621,13 +622,13 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
     for epoch in range(nb_epochs):
         if epoch == cmt*parameters['epochs_decay']:
             try:
-                model.text_encoder.freeze_layers(cmt)
+                model.freeze_layers(cmt)
                 train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-                val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                # val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                print('Freezed', cmt,'layers and batch size of :',parameters['batch_size'] + parameters['batch_size_add']*cmt )
             except:
                 print("The model is fully freezed")
             cmt += 1
-            print('Freezed', cmt,'layers and batch size of :',parameters['batch_size'] + parameters['batch_size_add']*cmt )
         print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
         count_iter = 0

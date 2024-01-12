@@ -84,8 +84,23 @@ class TextEncoder(nn.Module):
         return normalized_output
     
     def freeze_layers(self, num_layers_to_freeze):
+            # Compteur pour les couches gelées
+        frozen_layers = 0
+
+        # Parcourir les couches du transformer
+        for layer in self.bert.transformer.layer:
+            if frozen_layers < num_layers_to_freeze:
+                for param in layer.parameters():
+                    param.requires_grad = False
+                frozen_layers += 1
+            else:
+                break
+    
+    def freeze_layers2(self, num_layers_to_freeze):
         # Freeze the first 'num_layers_to_freeze' layers
+        print("freezing")
         for layer in self.bert.encoder.layer[:num_layers_to_freeze]:
+            print(layer)
             for param in layer.parameters():
                 param.requires_grad = False
 
@@ -94,6 +109,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.graph_encoder = GraphEncoderOneHead(parameters)
         self.text_encoder = TextEncoder(parameters)
+        print(self.text_encoder)
         self.vq = parameters['VQ']
         if self.vq :
             self.quantization = QuantizationLayer(parameters)
@@ -106,6 +122,9 @@ class Model(nn.Module):
             quantized_text, quantization_loss_text = self.quantization(text_encoded)
             return graph_encoded, text_encoded, quantization_loss_graph, quantization_loss_text
         return graph_encoded, text_encoded
+    
+    def freeze_layers(self, num_layers_to_freeze):
+        self.text_encoder.freeze_layers(num_layers_to_freeze)
     
     def get_text_encoder(self):
         return self.text_encoder
