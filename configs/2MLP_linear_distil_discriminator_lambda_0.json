@@ -1,0 +1,31 @@
+{
+    "expt_name": "discriminator_distil",
+    "log_dir":"discriminator_distil",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "use_discriminator": true,
+    "lambda_gp": 10,  
+
+    "num_node_features": 300,
+    "nout": 768,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "aggregation": "mean",
+    "mlp_layers": 2,
+
+    "model_name": "distilbert-base-uncased",
+    "VQ": false,
+
+    "lambda_param" : 0.0,
+    "margin_delta" : 0.3,
+
+    "nb_epochs": 200,
+    "batch_size": 100,
+    "accumulation_steps": 1,
+    "print_every": 50,
+  
+    "learning_rate": 1e-04,
+    "weight_decay": 1.01,
+  
+    "load_model_path": "None"
+  }

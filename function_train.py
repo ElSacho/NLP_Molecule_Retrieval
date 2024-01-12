@@ -627,7 +627,7 @@ def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_opti
             triplet_loss = compute_triplet_loss(x_graph, x_text, discriminator, margin_delta)
             current_loss = contrastive_loss(graph_batch, x_text)
             # Compute adversarial loss
-            adv_loss = adversarial_loss(discriminator, x_graph, x_text)
+            adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
 
             # Combined loss
             total_loss = triplet_loss + lambda_param * (adv_loss + current_loss)
@@ -668,7 +668,7 @@ def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_opti
             triplet_loss = compute_triplet_loss(x_graph, x_text, discriminator, margin_delta)
 
             # Compute adversarial loss
-            adv_loss = adversarial_loss(discriminator, x_graph, x_text)
+            adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
             current_loss = contrastive_loss(graph_batch, x_text)
 
             # Combined loss
