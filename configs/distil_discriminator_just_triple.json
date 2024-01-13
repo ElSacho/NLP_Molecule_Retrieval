@@ -1,15 +1,18 @@
 {
-    "expt_name": "discriminator_scibert_freeze_decay_20",
-    "log_dir":"discriminator_scibert_freeze_decay_20",
+    "expt_name": "discriminator_distil_freeze_decay_20_just_triple",
+    "log_dir":"discriminator_distil_freeze_decay_20_just_triple",
     "model_path": "models/oneHead_LinearNLP.py",
 
     "use_discriminator": true,
     "AMAN_freeze": true,
     "lambda_gp": 10,  
-    "batch_size_add" : 20,
+    "batch_size_add" : 30,
     "last_batch_size": 300,
     "epochs_decay" : 20,
 
+    "lambda_adv" : 0,
+    "lambda_contra" : 0,
+    
     "num_node_features": 300,
     "nout": 300,
     "nhid": 300,
@@ -17,14 +20,14 @@
     "aggregation": "mean",
     "mlp_layers": 2,
 
-    "model_name": "allenai/scibert_scivocab_uncased",
+    "model_name": "distilbert-base-uncased",
     "VQ": false,
 
     "lambda_param" : 2e-2,
     "margin_delta" : 0.3,
 
     "nb_epochs": 200,
-    "batch_size": 80,
+    "batch_size": 100,
     "accumulation_steps": 1,
     "print_every": 50,
   

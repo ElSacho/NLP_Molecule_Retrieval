@@ -609,6 +609,10 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
 
     epoch = 0
     loss = 0
+    
+    total_triplet_loss = 0
+    total_current_loss = 0
+    total_adv_loss = 0
 
     count_iter = 0
     time1 = time.time()
@@ -616,65 +620,82 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
     best_validation_loss = 1_000_000
     
     # optimizer = optim.SGD(model.parameters(), lr=parameters['learning_rate'], momentum=0.9)
-    
     lambda_param = parameters['lambda_param']
+    lambda_adv = parameters['lambda_adv']
+    lambda_contra = parameters['lambda_contra']
     margin_delta = parameters['margin_delta']
 
     writer.add_hparams(hparam_dict=parameters, metric_dict={})
     cmt = 1
     torch.cuda.empty_cache() # test to liberate memory space
     for epoch in range(nb_epochs):
-        if epoch == cmt*parameters['epochs_decay']:
-            try:
-                model.freeze_layers(cmt)
-                train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-                # val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-                print('Freezed', cmt,'layers and batch size of :',parameters['batch_size'] + parameters['batch_size_add']*cmt )
-            except:
-                print("The model is fully freezed")
-            cmt += 1
-        print('-----EPOCH{}-----'.format(epoch+1))
-        model.train()
-        count_iter = 0
-        for batch in train_loader:
-            input_ids = batch.input_ids
-            batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
-            attention_mask = batch.attention_mask
-            batch.pop('attention_mask')
-            graph_batch = batch
-            
-            x_graph, x_text = model(graph_batch.to(device), 
-                                    input_ids.to(device), 
-                                    attention_mask.to(device))
-            
-            triplet_loss = triplet_loss_sim(x_graph, x_text, margin_delta)
-            current_loss = contrastive_loss(x_graph, x_text)
-            # Compute adversarial loss
-            adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
+        try:
+            if epoch == cmt*parameters['epochs_decay']:
+                try:
+                    model.freeze_layers(cmt)
+                    train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                    # val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                    print('Freezed', cmt,'layers and batch size of :',parameters['batch_size'] + parameters['batch_size_add']*cmt )
+                except:
+                    print("The model is fully freezed")
+                cmt += 1
+            print('-----EPOCH{}-----'.format(epoch+1))
+            model.train()
+            count_iter = 0
+            for batch in train_loader:
+                input_ids = batch.input_ids
+                batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
+                attention_mask = batch.attention_mask
+                batch.pop('attention_mask')
+                graph_batch = batch
+                
+                x_graph, x_text = model(graph_batch.to(device), 
+                                        input_ids.to(device), 
+                                        attention_mask.to(device))
+                
+                triplet_loss = triplet_loss_sim(x_graph, x_text, margin_delta)
+                current_loss = contrastive_loss(x_graph, x_text)
+                # Compute adversarial loss
+                adv_loss = wgan_gp_loss(discriminator, x_graph, x_text, parameters['lambda_gp'])
 
-            # Combined loss
-            total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
-            # print("losses triplet :",triplet_loss.item(), " adv :", adv_loss.item(), "contras :", current_loss.item())
-            
-            # Zero gradients for optimizer and discriminator optimizer
-            optimizer.zero_grad()
-            discriminator_optimizer.zero_grad()
+                # Combined loss
+                if parameters.get("interpol_losses", False):
+                    t = cmt/5
+                    total_loss = triplet_loss * t + (1-t) * lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
+                else:
+                    total_loss = triplet_loss + lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
+                # total_loss = triplet_loss + lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
+                # print("losses triplet :",triplet_loss.item(), " adv :", adv_loss.item(), "contras :", current_loss.item())
+                
+                # Zero gradients for optimizer and discriminator optimizer
+                optimizer.zero_grad()
+                discriminator_optimizer.zero_grad()
 
-            # Backward pass and optimizers step
-            total_loss.backward()
-            optimizer.step()
-            discriminator_optimizer.step()
-            
-            loss += total_loss.item()
-            
-            count_iter += 1
-            
-            if count_iter % printEvery == 0 and printEvery != 1:
-                time2 = time.time()
-                print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
-                                                                            time2 - time1, loss/count_iter))
-            torch.cuda.empty_cache() # test to liberate memory space
+                # Backward pass and optimizers step
+                total_loss.backward()
+                optimizer.step()
+                discriminator_optimizer.step()
+                
+                loss += total_loss.item()
+                total_triplet_loss  += triplet_loss.item()
+                total_current_loss += current_loss.item()
+                total_adv_loss += adv_loss.item()
+                
+                count_iter += 1
+                
+                if count_iter % printEvery == 0 and printEvery != 1:
+                    time2 = time.time()
+                    print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
+                                                                                time2 - time1, loss/count_iter))
+                    print("The decompose in triplet :",total_triplet_loss/count_iter," constrastive : ",total_current_loss/count_iter," adversary :",total_adv_loss/count_iter,)
+                torch.cuda.empty_cache() # test to liberate memory space
+        except:
+            cmt -= 1
+            train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
         loss = 0
+        total_triplet_loss = 0
+        total_current_loss = 0
+        total_adv_loss = 0
         writer.add_scalar('Loss/train', loss, epoch)
         
         model.eval()
@@ -696,7 +717,11 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
             current_loss = contrastive_loss(x_graph, x_text)
 
             # Combined loss
-            total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
+            if parameters.get("interpol_losses", False):
+                t = cmt/5
+                total_loss = triplet_loss * t + (1-t) * lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
+            else:
+                total_loss = triplet_loss + lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
             val_loss += total_loss.item()
             torch.cuda.empty_cache() # test to liberate memory space
         lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
