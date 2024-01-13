@@ -73,6 +73,7 @@ class TextEncoder(nn.Module):
         self.linear = nn.Linear(self.bert.config.hidden_size, nout)
         self.norm = nn.LayerNorm(nout)
         num_layers_to_freeze = parameters.get('num_layers_to_freeze', 0)
+        self.max_number_to_freeze()
         if num_layers_to_freeze != 0:
             self.freeze_layers(num_layers_to_freeze)
 
@@ -82,6 +83,15 @@ class TextEncoder(nn.Module):
         linear_output = self.linear(cls_token_state)
         normalized_output = self.norm(linear_output)
         return normalized_output
+    
+    def max_number_to_freeze(self):
+        max_layers_to_freeze = 0
+        for layer in self.bert.transformer.layer:
+            for param in layer.parameters():
+                param.requires_grad = False
+            max_layers_to_freeze += 1
+        self.max_layers_to_freeze = max_layers_to_freeze
+        print("The max number of freezable layers is ,",max_layers_to_freeze)
     
     def freeze_layers(self, num_layers_to_freeze):
             # Compteur pour les couches gelées
@@ -114,6 +124,7 @@ class Model(nn.Module):
         self.vq = parameters['VQ']
         if self.vq :
             self.quantization = QuantizationLayer(parameters)
+        self.max_layers_to_freeze = self.text_encoder.max_layers_to_freeze
         
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)

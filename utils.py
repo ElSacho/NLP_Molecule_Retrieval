@@ -123,6 +123,7 @@ def calculate_val_lraps(model, val_dataset, val_loader, device, save=False):
         # Format the filename based on the LRAP score
         formatted_score = int(lrap_score * 10000)
         filename = f"{formatted_score}_submission.csv"
+        filename = "submission.csv"
 
         # Save the DataFrame to the file in 'submissions' folder
         solution.to_csv(os.path.join('submissions', filename), index=False)

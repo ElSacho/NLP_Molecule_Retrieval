@@ -629,20 +629,20 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
     cmt = 1
     torch.cuda.empty_cache() # test to liberate memory space
     for epoch in range(nb_epochs):
-        try:
-            if epoch == cmt*parameters['epochs_decay']:
-                try:
-                    model.freeze_layers(cmt)
-                    train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-                    # val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-                    print('Freezed', cmt,'layers and batch size of :',parameters['batch_size'] + parameters['batch_size_add']*cmt )
-                except:
-                    print("The model is fully freezed")
-                cmt += 1
-            print('-----EPOCH{}-----'.format(epoch+1))
-            model.train()
-            count_iter = 0
-            for batch in train_loader:
+        if epoch == cmt*parameters['epochs_decay']:
+            if model.max_layers_to_freeze >= cmt:
+                model.freeze_layers(cmt)
+                train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                # val_loader = DataLoader(val_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                print('Freezed', cmt,'layers and batch size of :', parameters['batch_size'] + parameters['batch_size_add']*cmt )
+            else:
+                print("The model is fully freezed")
+            cmt += 1
+        print('-----EPOCH{}-----'.format(epoch+1))
+        model.train()
+        count_iter = 0
+        for batch in train_loader:
+            try:
                 input_ids = batch.input_ids
                 batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
                 attention_mask = batch.attention_mask
@@ -660,7 +660,7 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
 
                 # Combined loss
                 if parameters.get("interpol_losses", False):
-                    t = cmt/5
+                    t = min(cmt/parameters['epochs_decay'],parameters['t_max'])
                     total_loss = triplet_loss * t + (1-t) * lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
                 else:
                     total_loss = triplet_loss + lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
@@ -669,12 +669,12 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
                 
                 # Zero gradients for optimizer and discriminator optimizer
                 optimizer.zero_grad()
-                discriminator_optimizer.zero_grad()
+                # discriminator_optimizer.zero_grad()
 
                 # Backward pass and optimizers step
                 total_loss.backward()
                 optimizer.step()
-                discriminator_optimizer.step()
+                # discriminator_optimizer.step()
                 
                 loss += total_loss.item()
                 total_triplet_loss  += triplet_loss.item()
@@ -689,9 +689,10 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
                                                                                 time2 - time1, loss/count_iter))
                     print("The decompose in triplet :",total_triplet_loss/count_iter," constrastive : ",total_current_loss/count_iter," adversary :",total_adv_loss/count_iter,)
                 torch.cuda.empty_cache() # test to liberate memory space
-        except:
-            cmt -= 1
-            train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+            except:
+                print("EROOOOR OCCURED")
+                train_loader = DataLoader(train_dataset, batch_size = 250, shuffle=True)
+                torch.cuda.empty_cache()
         loss = 0
         total_triplet_loss = 0
         total_current_loss = 0
@@ -718,7 +719,7 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
 
             # Combined loss
             if parameters.get("interpol_losses", False):
-                t = cmt/5
+                t = min(cmt/parameters['epochs_decay'],parameters['t_max'])
                 total_loss = triplet_loss * t + (1-t) * lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
             else:
                 total_loss = triplet_loss + lambda_param * (adv_loss * lambda_adv + lambda_contra * current_loss)
@@ -744,13 +745,14 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
             print('checkpoint saved to: {}'.format(save_path))
             save_path = os.path.join('./models', 'model_attention'+str(epoch)+'.pt')
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
-            torch.save({
-            'epoch': epoch,
-            'model_state_dict': discriminator.state_dict(),
-            # 'optimizer_state_dict': optimizer.state_dict(),
-            'validation_accuracy': val_loss,
-            'loss': loss,
-            }, 'discriminator_checkpoint.pt')
+            # torch.save({
+            # 'epoch': epoch,
+            # 'model_state_dict': discriminator.state_dict(),
+            # # 'optimizer_state_dict': optimizer.state_dict(),
+            # 'validation_accuracy': val_loss,
+            # 'loss': loss,
+            # }, 'discriminator_checkpoint.pt')
+            temp = calculate_val_lraps(model, val_dataset, val_loader, device, save=True)
             # print('checkpoint saved to: {}'.format(save_path))
             
         else :
