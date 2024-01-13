@@ -96,7 +96,7 @@ class TextEncoder(nn.Module):
             else:
                 break
     
-    def freeze_layers2(self, num_layers_to_freeze):
+    def freeze_layers_scibert(self, num_layers_to_freeze):
         # Freeze the first 'num_layers_to_freeze' layers
         print("freezing")
         for layer in self.bert.encoder.layer[:num_layers_to_freeze]:
@@ -109,6 +109,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.graph_encoder = GraphEncoderOneHead(parameters)
         self.text_encoder = TextEncoder(parameters)
+        self.param = parameters
         print(self.text_encoder)
         self.vq = parameters['VQ']
         if self.vq :
@@ -124,7 +125,10 @@ class Model(nn.Module):
         return graph_encoded, text_encoded
     
     def freeze_layers(self, num_layers_to_freeze):
-        self.text_encoder.freeze_layers(num_layers_to_freeze)
+        if self.param['model_name'] == "allenai/scibert_scivocab_uncased":
+            self.text_encoder.freeze_layers_scibert(num_layers_to_freeze)
+        else:
+            self.text_encoder.freeze_layers(num_layers_to_freeze)
     
     def get_text_encoder(self):
         return self.text_encoder

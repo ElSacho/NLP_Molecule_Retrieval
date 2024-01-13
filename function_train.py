@@ -63,7 +63,11 @@ def train_conf(config_path, best_lraps):
     nb_epochs = parameters['nb_epochs']
     batch_size = parameters['batch_size']
 
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+    
+    if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
+        val_loader = DataLoader(val_dataset, batch_size=32, shuffle=True)
+    else:
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     
     model_path = parameters['model_path']
