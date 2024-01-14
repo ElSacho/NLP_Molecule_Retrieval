@@ -73,9 +73,15 @@ class TextEncoder(nn.Module):
         self.linear = nn.Linear(self.bert.config.hidden_size, nout)
         self.norm = nn.LayerNorm(nout)
         num_layers_to_freeze = parameters.get('num_layers_to_freeze', 0)
-        self.max_number_to_freeze()
+        if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
+            self.max_number_to_freeze_scibert()
+        else:
+            self.max_number_to_freeze()
         if num_layers_to_freeze != 0:
-            self.freeze_layers(num_layers_to_freeze)
+            if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
+                self.freeze_layers_scibert(num_layers_to_freeze)
+            else:
+                self.freeze_layers(num_layers_to_freeze)
 
     def forward(self, input_ids, attention_mask):
         encoded_text = self.bert(input_ids, attention_mask=attention_mask)
@@ -86,9 +92,14 @@ class TextEncoder(nn.Module):
     
     def max_number_to_freeze(self):
         max_layers_to_freeze = 0
-        for layer in self.bert.transformer.layer:
-            for param in layer.parameters():
-                param.requires_grad = False
+        for _ in self.bert.transformer.layer:
+            max_layers_to_freeze += 1
+        self.max_layers_to_freeze = max_layers_to_freeze
+        print("The max number of freezable layers is ,",max_layers_to_freeze)
+        
+    def max_number_to_freeze_scibert(self):
+        max_layers_to_freeze = 0
+        for layer in self.bert.encoder.layer:
             max_layers_to_freeze += 1
         self.max_layers_to_freeze = max_layers_to_freeze
         print("The max number of freezable layers is ,",max_layers_to_freeze)

@@ -4,7 +4,7 @@
     "model_path": "models/oneHead_LinearNLP.py",
   
     "num_node_features": 300,
-    "nout": 768,
+    "nout": 300,
     "nhid": 300,
     "graph_hidden_channels": 300,
     "aggregation": "mean",
@@ -12,7 +12,7 @@
 
     "model_name": "allenai/scibert_scivocab_uncased",
     "VQ": false,
-    "num_layers_to_freeze": 4,
+    "num_layers_to_freeze": 6,
     "print_every": 60,
 
     "nb_epochs": 200,
@@ -20,7 +20,7 @@
     "batch_size": 60,
     "accumulation_steps": 1,
   
-    "learning_rate": 3e-05,
+    "learning_rate": 3e-04,
     "weight_decay": 1.01,
   
     "load_model_path": "None"

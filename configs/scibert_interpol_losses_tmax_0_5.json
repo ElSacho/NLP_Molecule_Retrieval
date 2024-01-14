@@ -1,11 +1,20 @@
 {
-    "expt_name": "discriminator_scibert",
-    "log_dir":"discriminator_scibert",
+    "expt_name": "scibert_interpol_losses_tmax_0_5",
+    "log_dir":"scibert_interpol_losses_tmax_0_5",
     "model_path": "models/oneHead_LinearNLP.py",
 
     "use_discriminator": true,
+    "AMAN_freeze": true,
     "lambda_gp": 10,  
+    "batch_size_add" : 5,
+    "last_batch_size": 300,
+    "epochs_decay" : 7,
 
+    "interpol_losses": true,
+    "lambda_adv" : 0.0,
+    "lambda_contra" : 1.0,
+    "t_max": 0.5,
+    
     "num_node_features": 300,
     "nout": 300,
     "nhid": 300,
@@ -20,11 +29,11 @@
     "margin_delta" : 0.3,
 
     "nb_epochs": 200,
-    "batch_size": 60,
+    "batch_size": 32,
     "accumulation_steps": 1,
     "print_every": 50,
   
-    "learning_rate": 1e-04,
+    "learning_rate": 3e-04,
     "weight_decay": 1.01,
   
     "load_model_path": "None"

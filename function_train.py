@@ -761,9 +761,6 @@ def train_after_loading_AMAN_freeze_decay(model, discriminator, optimizer, discr
         
     return best_lraps
 
-
-
-
 def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 1):
     expt_name = parameters['expt_name']
     timestamp = time.strftime("%Y-%m-%d--%H%M")
@@ -851,16 +848,6 @@ def train_after_loading_AMAN(model, discriminator, optimizer, discriminator_opti
 
             # Combined loss
             total_loss = triplet_loss + lambda_param * (adv_loss * 0.2 + current_loss)
-            
-            # Zero gradients for optimizer and discriminator optimizer
-            optimizer.zero_grad()
-            discriminator_optimizer.zero_grad()
-
-            # Backward pass and optimizers step
-            total_loss.backward()
-            optimizer.step()
-            discriminator_optimizer.step()
-            
             val_loss += total_loss.item()
             torch.cuda.empty_cache() # test to liberate memory space
         lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
