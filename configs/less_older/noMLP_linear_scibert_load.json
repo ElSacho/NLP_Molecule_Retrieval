@@ -15,12 +15,12 @@
   
   "nb_epochs": 200,
   "n_batches_before_break_in_epochs": -1,
-  "batch_size": 70,
-  "num_layers_to_freeze": 5,
+  "batch_size": 160,
+  "num_layers_to_freeze": 12,
   "accumulation_steps": 1,
   "print_every": 60,
 
-  "learning_rate": 3e-05,
+  "learning_rate": 3e-04,
   "weight_decay": 1.01,
 
   "load_model_path": "model_checkpoint.pt"

@@ -19,26 +19,14 @@ import csv
 import importlib.util
 import sys
 
-from models.disciminator import Discriminator
-from losses import compute_triplet_loss, wgan_gp_loss, triplet_loss_sim
+# from models.disciminator import Discriminator
+from losses import wgan_gp_loss, triplet_loss_sim, contrastive_loss, cosine_similarity_loss
 from torchvision import datasets, transforms
 
 import json
 
 from utils import calculate_val_lraps, calculate_val_lraps_VQ
 
-CE = torch.nn.CrossEntropyLoss()
-def contrastive_loss(v1, v2):
-  logits = torch.matmul(v1,torch.transpose(v2, 0, 1))
-  labels = torch.arange(logits.shape[0], device=v1.device)
-  return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
-
-BCEL = torch.nn.BCEWithLogitsLoss()
-
-def negative_sampling_contrastive_loss(v1, v2, labels):
-  logits = torch.matmul(v1,torch.transpose(v2, 0, 1))
-  eye = torch.diag_embed(labels).to(v1.device)
-  return BCEL(logits, eye) + BCEL(torch.transpose(logits, 0, 1), eye), logits.diag() > 0
 
 def train(list_config_path):
     best_lraps = 0
@@ -54,16 +42,15 @@ def train_conf(config_path, best_lraps):
     model_name = parameters['model_name']
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
-    val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
-    train_dataset = GraphTextDataset(root='data/', gt=gt, split='train', tokenizer=tokenizer)
+    gt = np.load("../data/token_embedding_dict.npy", allow_pickle=True)[()]
+    val_dataset = GraphTextDataset(root='../data/', gt=gt, split='val', tokenizer=tokenizer)
+    train_dataset = GraphTextDataset(root='../data/', gt=gt, split='train', tokenizer=tokenizer)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     nb_epochs = parameters['nb_epochs']
     batch_size = parameters['batch_size']
 
-    
     if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
         val_loader = DataLoader(val_dataset, batch_size=32, shuffle=True)
     else:
@@ -90,6 +77,7 @@ def train_conf(config_path, best_lraps):
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                                     betas=(0.9, 0.999),
                                     weight_decay=weight_decay)
+    
     # optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 
     if parameters['load_model_path'] != "None":
@@ -103,7 +91,9 @@ def train_conf(config_path, best_lraps):
             raise
     
     print('Start training')
-    if parameters.get('AMAN_freeze', False):
+    if True:
+        best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = parameters.get("print_every", 1))
+    elif parameters.get('freeze_decay', False):
         print("you are using a discriminator with freeze decay")
         discriminator = Discriminator(parameters)
         discriminator_optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
@@ -138,7 +128,137 @@ def train_conf(config_path, best_lraps):
     
     return best_lraps
 
-def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 1):
+
+def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, printEvery = -1):
+    expt_name = parameters['expt_name']
+    timestamp = time.strftime("%Y-%m-%d--%H%M")
+    writer = SummaryWriter(f'logs/{expt_name}-{timestamp}')
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    epoch = 0
+    loss = 0
+
+    count_iter = 0
+    time1 = time.time()
+
+    best_validation_loss = 1_000_000
+    
+    writer.add_hparams(hparam_dict=parameters, metric_dict={})
+    torch.cuda.empty_cache() # test to liberate memory space
+    cmt = 1
+    for epoch in range(nb_epochs):
+        print('-----EPOCH{}-----'.format(epoch+1))
+        model.train()
+        count_iter = 0
+        for batch in train_loader:
+            try:
+                if epoch == cmt * parameters.get('epochs_decay', -1):
+                    if model.max_layers_to_freeze >= cmt:
+                        model.freeze_layers(cmt)
+                        train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
+                        print('Freezed', cmt,'layers and batch size of :', parameters['batch_size'] + parameters['batch_size_add']*cmt )
+                    else:
+                        print("The model is fully freezed")
+                    cmt += 1
+                input_ids = batch.input_ids
+                batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
+                attention_mask = batch.attention_mask
+                batch.pop('attention_mask')
+                graph_batch = batch
+                
+                x_graph, x_text = model(graph_batch.to(device), 
+                                        input_ids.to(device), 
+                                        attention_mask.to(device))
+                
+                if parameters["loss"] == "contrastive":
+                    current_loss = contrastive_loss(x_graph, x_text)
+                elif parameters["loss"] == "triplet":
+                    current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta'])
+                elif parameters["loss"] == "triplet and contrastive":
+                    current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta']) + parameters['lambda_contra'] * parameters['lambda_param'] * contrastive_loss(x_graph, x_text)
+                elif parameters["loss"] == "interpolate":
+                    t = min(cmt/parameters['nb_epochs']/2,parameters['t_max'])
+                    current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta']) * t + (1-t) * parameters['lambda_contra'] * parameters['lambda_param'] * contrastive_loss(x_graph, x_text)
+                elif parameters["loss"] == "cosin":
+                    current_loss = cosine_similarity_loss(x_graph, x_text)
+                else:
+                    current_loss = contrastive_loss(x_graph, x_text)
+                    
+                optimizer.zero_grad()
+                current_loss.backward()
+                optimizer.step()
+                loss += current_loss.item()
+                
+                count_iter += 1
+                
+                if count_iter % printEvery == 0 and printEvery != -1:
+                    time2 = time.time()
+                    print("Iteration: {0}, Time: {1:.4f} s, training loss: {2:.4f}".format(count_iter,
+                                                                                time2 - time1, loss/count_iter))
+                torch.cuda.empty_cache() # test to liberate memory space
+            except:
+                torch.cuda.empty_cache()
+                print('An error occured during the train')
+
+        writer.add_scalar('Loss/train', loss, epoch)
+        loss = 0
+        model.eval()
+        torch.cuda.empty_cache()
+        
+        val_loss = 0        
+        for batch in val_loader:
+            input_ids = batch.input_ids
+            batch.pop('input_ids')
+            attention_mask = batch.attention_mask
+            batch.pop('attention_mask')
+            graph_batch = batch
+            
+            x_graph, x_text = model(graph_batch.to(device), 
+                                    input_ids.to(device), 
+                                    attention_mask.to(device))
+            
+            if parameters["loss"] == "contrastive":
+                current_loss = contrastive_loss(x_graph, x_text)
+            elif parameters["loss"] == "triplet":
+                current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta'])
+            elif parameters["loss"] == "triplet and contrastive":
+                current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta']) + parameters['lambda_contra'] * parameters['lambda_param'] * contrastive_loss(x_graph, x_text)
+            elif parameters["loss"] == "interpolate":
+                t = min(cmt/parameters['nb_epochs']/2,parameters['t_max'])
+                current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta']) * t + (1-t) * parameters['lambda_contra'] * parameters['lambda_param'] * contrastive_loss(x_graph, x_text)
+            elif parameters["loss"] == "cosin":
+                current_loss = cosine_similarity_loss(x_graph, x_text)
+            else:
+                current_loss = contrastive_loss(x_graph, x_text)
+                
+            val_loss += current_loss.item()
+            torch.cuda.empty_cache() # test to liberate memory space
+            
+        lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
+        torch.cuda.empty_cache() # test to liberate memory space
+        best_validation_loss = min(best_validation_loss, val_loss)
+        best_lraps = max(best_lraps, lraps)
+        writer.add_scalar('Loss/val', val_loss, epoch)
+        writer.add_scalar('Lraps/val', lraps, epoch)
+        if best_lraps==lraps:
+            print('lraps improoved saving checkpoint...')
+            save_path = os.path.join('./models', 'model_checkpoint.pt')
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps )
+            torch.save({
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            # 'optimizer_state_dict': optimizer.state_dict(),
+            'validation_accuracy': val_loss,
+            'loss': loss,
+            }, 'model_checkpoint.pt')
+        else :
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps, "best current LRAPS is :",  best_lraps)
+        torch.cuda.empty_cache() # test to liberate memory space
+        
+    return best_lraps
+
+def train_after_loading2(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, printEvery = 1):
     expt_name = parameters['expt_name']
     timestamp = time.strftime("%Y-%m-%d--%H%M")
     writer = SummaryWriter(f'logs/{expt_name}-{timestamp}')

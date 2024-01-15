@@ -9,7 +9,7 @@ from models.quantization import QuantizationLayer
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GCNConv, global_mean_pool, GATConv, BatchNorm
+from torch_geometric.nn import GCNConv, global_mean_pool, GATConv, BatchNorm, SAGEConv, ChebConv
 
 class GraphEncoderOneHead(nn.Module):
     def __init__(self, parameters):            
@@ -25,11 +25,21 @@ class GraphEncoderOneHead(nn.Module):
         self.ln = nn.LayerNorm(nout)
         
         # GCN layers with BatchNorm
-        self.conv1 = GCNConv(num_node_features, graph_hidden_channels)
+        if parameters.get("use_sage", False):
+            self.conv1 = SAGEConv(num_node_features, graph_hidden_channels)
+            self.conv2 = SAGEConv(graph_hidden_channels, graph_hidden_channels)
+            self.conv3 = SAGEConv(graph_hidden_channels, graph_hidden_channels)
+        elif parameters.get("use_cheb", False):
+            self.conv1 = ChebConv(num_node_features, graph_hidden_channels, self.cheb_k)
+            self.conv2 = ChebConv(graph_hidden_channels, graph_hidden_channels, self.cheb_k)
+            self.conv3 = ChebConv(graph_hidden_channels, graph_hidden_channels, self.cheb_k)
+        else:
+            self.conv1 = GCNConv(num_node_features, graph_hidden_channels)
+            self.conv2 = GCNConv(graph_hidden_channels, graph_hidden_channels)
+            self.conv3 = GCNConv(graph_hidden_channels, graph_hidden_channels)
+        
         self.bn1 = BatchNorm(graph_hidden_channels)
-        self.conv2 = GCNConv(graph_hidden_channels, graph_hidden_channels)
         self.bn2 = BatchNorm(graph_hidden_channels)
-        self.conv3 = GCNConv(graph_hidden_channels, graph_hidden_channels)
         self.bn3 = BatchNorm(graph_hidden_channels)
         
         # Attention layer with BatchNorm
@@ -95,20 +105,18 @@ class TextEncoder(nn.Module):
         for _ in self.bert.transformer.layer:
             max_layers_to_freeze += 1
         self.max_layers_to_freeze = max_layers_to_freeze
-        print("The max number of freezable layers is ,",max_layers_to_freeze)
+        print("The max number of freezable layers is : ",max_layers_to_freeze)
         
     def max_number_to_freeze_scibert(self):
         max_layers_to_freeze = 0
         for layer in self.bert.encoder.layer:
             max_layers_to_freeze += 1
         self.max_layers_to_freeze = max_layers_to_freeze
-        print("The max number of freezable layers is ,",max_layers_to_freeze)
+        print("The max number of freezable layers is : ",max_layers_to_freeze)
     
     def freeze_layers(self, num_layers_to_freeze):
-            # Compteur pour les couches gelées
         frozen_layers = 0
-
-        # Parcourir les couches du transformer
+        print("freezing ",num_layers_to_freeze, " layers")
         for layer in self.bert.transformer.layer:
             if frozen_layers < num_layers_to_freeze:
                 for param in layer.parameters():
@@ -118,8 +126,7 @@ class TextEncoder(nn.Module):
                 break
     
     def freeze_layers_scibert(self, num_layers_to_freeze):
-        # Freeze the first 'num_layers_to_freeze' layers
-        print("freezing")
+        print("freezing ",num_layers_to_freeze, " layers")
         for layer in self.bert.encoder.layer[:num_layers_to_freeze]:
             print(layer)
             for param in layer.parameters():

@@ -1,0 +1,25 @@
+{
+    "expt_name": "distil_basic",
+    "log_dir":"distil_basic",
+    "model_path": "models/oneHead_LinearNLP.py",
+  
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "mlp_layers": 2,
+
+    "model_name": "distilbert-base-uncased",
+    "VQ": false,
+
+    "loss" : "contrastive",
+
+    "nb_epochs": 200,
+    "batch_size": 50,
+    "print_every": 50,
+  
+    "learning_rate": 3e-05,
+    "weight_decay": 1.01,
+  
+    "load_model_path": "None"
+  }

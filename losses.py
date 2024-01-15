@@ -206,6 +206,36 @@ def create_hard_negative_triplets(x_graph, x_text):
 
     return triplets
     
+def cosine_similarity_loss(v1, v2):
+    # Compute the cosine similarity for each pair of vectors
+    # v1 has shape [batch_size, features], v2 has shape [batch_size, features]
+    # We unsqueeze v1 to [batch_size, 1, features] and v2 to [batch_size, features, 1]
+    # to get a [batch_size, batch_size] similarity matrix
+    similarity_matrix = F.cosine_similarity(v1.unsqueeze(1), v2.unsqueeze(2), dim=2)
+
+    # Create labels for the diagonal elements, which should be the highest
+    labels = torch.arange(similarity_matrix.shape[0], device=v1.device)
+
+    # Use Cross Entropy Loss - this expects logits, not probabilities, so we don't apply softmax
+    # The diagonal elements (same pairs) should be maximized, others minimized
+    loss = F.cross_entropy(similarity_matrix, labels) + F.cross_entropy(similarity_matrix.t(), labels)
+
+    return loss
+
+
+CE = torch.nn.CrossEntropyLoss()
+def contrastive_loss(v1, v2):
+  logits = torch.matmul(v1,torch.transpose(v2, 0, 1))
+  labels = torch.arange(logits.shape[0], device=v1.device)
+  return CE(logits, labels) + CE(torch.transpose(logits, 0, 1), labels)
+
+BCEL = torch.nn.BCEWithLogitsLoss()
+
+def negative_sampling_contrastive_loss(v1, v2, labels):
+  logits = torch.matmul(v1,torch.transpose(v2, 0, 1))
+  eye = torch.diag_embed(labels).to(v1.device)
+  return BCEL(logits, eye) + BCEL(torch.transpose(logits, 0, 1), eye), logits.diag() > 0
+    
 def triplet_loss_cosine(anchor, positive, negative, margin):
     """
     Compute the triplet loss using cosine similarity.
