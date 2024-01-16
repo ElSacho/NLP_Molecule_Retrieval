@@ -1,7 +1,10 @@
 {
     "expt_name": "distil_basic",
-    "log_dir":"distil_basic",
+    "log_dir":"freeze",
     "model_path": "models/oneHead_LinearNLP.py",
+
+    "epochs_decay" : 5,
+    "batch_size_add" : 20,
   
     "num_node_features": 300,
     "nout": 300,
@@ -10,7 +13,7 @@
     "mlp_layers": 2,
 
     "model_name": "distilbert-base-uncased",
-    "num_layers_to_freeze" : 3,
+    "num_layers_to_freeze" : 0,
     "VQ": false,
 
     "loss" : "contrastive",
@@ -22,5 +25,5 @@
     "learning_rate": 3e-05,
     "weight_decay": 1.01,
   
-    "load_model_path": "model_checkpoint.pt"
+    "load_model_path": "None"
   }

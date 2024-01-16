@@ -19,7 +19,7 @@ import csv
 import importlib.util
 import sys
 
-from models.disciminator import Discriminator
+# from models.disciminator import Discriminator
 from losses import compute_triplet_loss, wgan_gp_loss, triplet_loss_sim
 from torchvision import datasets, transforms
 from sklearn.metrics.pairwise import cosine_similarity
@@ -27,6 +27,34 @@ from sklearn.metrics.pairwise import cosine_similarity
 import json
 
 from utils import calculate_val_lraps, calculate_val_lraps_VQ
+
+def make_csv_online(model, test_loader, test_text_loader, device, name=None):
+    graph_model = model.get_graph_encoder()
+    text_model = model.get_text_encoder()
+    
+    graph_embeddings = []
+    for batch in test_loader:
+        for output in graph_model(batch.to(device)):
+            graph_embeddings.append(output.tolist())
+
+    text_embeddings = []
+    for batch in test_text_loader:
+        for output in text_model(batch['input_ids'].to(device), 
+                                attention_mask=batch['attention_mask'].to(device)):
+            text_embeddings.append(output.tolist())
+            
+    similarity = cosine_similarity(text_embeddings, graph_embeddings)
+
+    solution = pd.DataFrame(similarity)
+
+    solution['ID'] = solution.index
+
+    solution = solution[['ID'] + [col for col in solution.columns if col!='ID']]
+
+    if name == None:
+        solution.to_csv('submission.csv', index=False)
+    else:
+        solution.to_csv(f'{name}.csv', index=False)
 
 def generate_csv(config_path):
     with open(config_path, 'r') as file:
@@ -36,8 +64,8 @@ def generate_csv(config_path):
     model_name = parameters['model_name']
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    gt = np.load("data/token_embedding_dict.npy", allow_pickle=True)[()]
-    val_dataset = GraphTextDataset(root='data/', gt=gt, split='val', tokenizer=tokenizer)
+    gt = np.load("../data/token_embedding_dict.npy", allow_pickle=True)[()]
+    val_dataset = GraphTextDataset(root='../data/', gt=gt, split='val', tokenizer=tokenizer)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -66,8 +94,8 @@ def generate_csv(config_path):
     graph_model = model.get_graph_encoder()
     text_model = model.get_text_encoder()
     
-    test_cids_dataset = GraphDataset(root='data/', gt=gt, split='test_cids')
-    test_text_dataset = TextDataset(file_path='data/test_text.txt', tokenizer=tokenizer)
+    test_cids_dataset = GraphDataset(root='../data/', gt=gt, split='test_cids')
+    test_text_dataset = TextDataset(file_path='../data/test_text.txt', tokenizer=tokenizer)
 
     idx_to_cid = test_cids_dataset.get_idx_to_cid()
 

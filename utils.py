@@ -2,6 +2,7 @@ from dataloader import GraphTextDataset
 from torch_geometric.data import DataLoader
 import numpy as np
 from transformers import AutoTokenizer
+from dataloader import GraphTextDataset, GraphDataset, TextDataset
 import torch
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics import label_ranking_average_precision_score
@@ -9,7 +10,7 @@ import pandas as pd
 
 import os
 
-def calculate_val_lraps(model, val_dataset, val_loader, device, save=False):
+def calculate_val_lraps(model, val_dataset, val_loader, device):
     graph_embeddings = []
     text_embeddings = []
 
@@ -42,26 +43,9 @@ def calculate_val_lraps(model, val_dataset, val_loader, device, save=False):
     
     lrap_score = label_ranking_average_precision_score(true_labels, similarity)
     
-    if save:
-        solution = pd.DataFrame(similarity)
-        solution['ID'] = solution.index
-        solution = solution[['ID'] + [col for col in solution.columns if col != 'ID']]
-
-        # Create 'submissions' folder if it doesn't exist
-        if not os.path.exists('submissions'):
-            os.makedirs('submissions')
-
-        # Format the filename based on the LRAP score
-        formatted_score = int(lrap_score * 10000)
-        filename = f"{formatted_score}_submission.csv"
-        filename = "submission.csv"
-
-        # Save the DataFrame to the file in 'submissions' folder
-        solution.to_csv(os.path.join('submissions', filename), index=False)
-
     return lrap_score
 
-def calculate_val_lraps_VQ(model, val_dataset, val_loader, device, save = False):
+def calculate_val_lraps_VQ(model, val_dataset, val_loader, device):
     graph_embeddings = []
     text_embeddings = []
 
@@ -90,24 +74,6 @@ def calculate_val_lraps_VQ(model, val_dataset, val_loader, device, save = False)
 
     # Compute LRAP score
     lrap_score = label_ranking_average_precision_score(true_labels, similarity)
-    
-    similarity = cosine_similarity(text_embeddings, graph_embeddings)
-
-    if save:
-        solution = pd.DataFrame(similarity)
-        solution['ID'] = solution.index
-        solution = solution[['ID'] + [col for col in solution.columns if col != 'ID']]
-
-        # Create 'submissions' folder if it doesn't exist
-        if not os.path.exists('submissions'):
-            os.makedirs('submissions')
-
-        # Format the filename based on the LRAP score
-        formatted_score = int(lrap_score * 10000)
-        filename = f"{formatted_score}_submission.csv"
-
-        # Save the DataFrame to the file in 'submissions' folder
-        solution.to_csv(os.path.join('submissions', filename), index=False)
 
     return lrap_score
 

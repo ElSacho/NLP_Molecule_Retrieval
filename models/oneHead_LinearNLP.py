@@ -138,7 +138,7 @@ class Model(nn.Module):
         self.graph_encoder = GraphEncoderOneHead(parameters)
         self.text_encoder = TextEncoder(parameters)
         self.param = parameters
-        print(self.text_encoder)
+        # print(self.text_encoder)
         self.vq = parameters['VQ']
         if self.vq :
             self.quantization = QuantizationLayer(parameters)
