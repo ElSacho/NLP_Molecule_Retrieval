@@ -18,7 +18,7 @@ class GraphEncoderOneHead(nn.Module):
         nout = parameters['nout']
         nhid = parameters['nhid']
         graph_hidden_channels = parameters['graph_hidden_channels']
-        mlp_layers = parameters['mlp_layers']
+        # mlp_layers = parameters['mlp_layers']
         num_heads = 1
         
         self.relu = nn.ReLU()
@@ -48,11 +48,15 @@ class GraphEncoderOneHead(nn.Module):
         
         # Linear layers
         self.mol_hidden1 = nn.Linear(graph_hidden_channels, nhid)
-        self.mol_hiddens = []
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        for _ in range(mlp_layers):
-            self.mol_hiddens.append(nn.Linear(nhid, nhid).to(device))
-        self.mol_hidden2 = nn.Linear(nhid, nout)
+        self.mol_hidden2 = nn.Linear(nhid, nhid)
+        self.mol_hidden3 = nn.Linear(nhid, nhid)
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # for _ in range(mlp_layers):
+        # #     self.mol_hiddens.append(nn.Linear(nhid, nhid).to(device))
+        # self.mol_hiddens = nn.ModuleList()
+        # for _ in range(mlp_layers):
+        #     self.mol_hiddens.append(nn.Linear(nhid, nhid))
+        self.mol_hidden4 = nn.Linear(nhid, nout)
 
     def forward(self, graph_batch):
         x, edge_index, batch = graph_batch.x, graph_batch.edge_index, graph_batch.batch
@@ -68,10 +72,16 @@ class GraphEncoderOneHead(nn.Module):
         # Pooling and linear layers
         x = global_mean_pool(x, batch)
         x = self.relu(self.mol_hidden1(x))
-        if len(self.mol_hiddens) > 0:
-            for mlp_layer in self.mol_hiddens:
-                x = self.relu(mlp_layer(x))
-        x = self.mol_hidden2(x)
+        # if len(self.mol_hiddens) > 0:
+        #     for mlp_layer in self.mol_hiddens:
+        #         x = self.relu(mlp_layer(x))
+        
+        # if len(self.mol_hiddens) > 0:
+        #     for mlp_layer in self.mol_hiddens:
+        #         x = self.relu(mlp_layer(x))
+        x = self.relu(self.mol_hidden2(x))
+        x = self.relu(self.mol_hidden3(x))
+        x = self.mol_hidden4(x)
 
         return x
     

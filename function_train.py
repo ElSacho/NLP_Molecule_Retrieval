@@ -19,13 +19,15 @@ import csv
 import importlib.util
 import sys
 
+from models.oneHead_LinearNLP import Model
+
 # from models.disciminator import Discriminator
 from losses import wgan_gp_loss, triplet_loss_sim, contrastive_loss, cosine_similarity_loss
 from torchvision import datasets, transforms
 
 import json
 
-from utils import calculate_val_lraps, calculate_val_lraps_VQ
+from utils import calculate_val_lraps, calculate_val_lraps_VQ, print_parameters
 from generate_submission import make_csv_online
 
 
@@ -54,23 +56,20 @@ def train_conf(config_path, best_lraps):
     nb_epochs = parameters['nb_epochs']
     batch_size = parameters['batch_size']
 
-    print("\n\n================================================================================")
-    print("========================== THE PARAMETERS YOU USE ============================")    
-    print(f"== MODEL: {model_name} ==")
-    print(f"== BATCH_SIZE: {batch_size} ==")
-    print(f"== LOSS: {parameters['loss']} ==")
-    print(f"== FREEZEING: {parameters.get('num_layers_to_freeze', 0)} LAYERS ==")
-    print(f"== USING VQ: {parameters['VQ']} ==")
+    print_parameters(parameters)
 
 
     if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
         val_loader = DataLoader(val_dataset, batch_size=32, shuffle=True)
+        test_loader = DataLoader(test_cids_dataset, batch_size=32, shuffle=False)
+        test_text_loader = TorchDataLoader(test_text_dataset, batch_size=32, shuffle=False)
     else:
-        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_cids_dataset, batch_size=batch_size, shuffle=False)
-    test_text_loader = TorchDataLoader(test_text_dataset, batch_size=batch_size, shuffle=False)
+        val_loader = DataLoader(val_dataset, batch_size=100, shuffle=True)
+        test_loader = DataLoader(test_cids_dataset, batch_size=100, shuffle=False)
+        test_text_loader = TorchDataLoader(test_text_dataset, batch_size=100, shuffle=False)
     
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
     model_path = parameters['model_path']
     spec = importlib.util.spec_from_file_location("ModelModule", model_path)
     model_module = importlib.util.module_from_spec(spec)
@@ -78,7 +77,7 @@ def train_conf(config_path, best_lraps):
     spec.loader.exec_module(model_module)
 
     # Import the right path 
-    Model = getattr(model_module, 'Model')
+    # Model = getattr(model_module, 'Model')
     model = Model(parameters)
     model.to(device)
     
@@ -90,16 +89,24 @@ def train_conf(config_path, best_lraps):
                                     weight_decay=weight_decay)
     
 
+    # print("Poids avant le chargement :")
+    # for name, param in model.named_parameters():
+    #     print(name)
+    
+    
+    # print(model.text_encoder.bert.embeddings.LayerNorm.weight)
+
     if parameters['load_model_path'] != "None":
         try : 
             checkpoint = torch.load(parameters['load_model_path'])
             model.load_state_dict(checkpoint['model_state_dict'])
-            print("=== WE SUCCESSFULLY LOADED THE WEIGHTS OF A PREIVOUS MODEL ===")
+            print("=== WE SUCCESSFULLY LOADED THE WEIGHTS OF A PREVIOUS MODEL ===")
             # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         except Exception as e:
             print("Error loading model or optimizer :", e)
             raise
-    
+    # print("\nPoids après le chargement :")
+    # print(model.text_encoder.bert.embeddings.LayerNorm.weight)
     print("==========================================================", end='\n\n')
     print('Start training')
 
@@ -122,10 +129,11 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
     time1 = time.time()
 
     best_validation_loss = 1_000_000
+    lraps = 0
     
     writer.add_hparams(hparam_dict=parameters, metric_dict={})
-    torch.cuda.empty_cache() # test to liberate memory space
     cmt = 1
+        
     for epoch in range(nb_epochs):
         print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
@@ -237,7 +245,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
             # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
-            }, 'model_checkpoint.pt')
+            }, 'model_checkpoint_sci_pretrained.pt')
             try:
                 make_csv_online(model, test_loader, test_text_loader, device, name=parameters['expt_name'])
             except Exception as e:

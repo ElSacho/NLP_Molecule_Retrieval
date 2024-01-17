@@ -78,3 +78,18 @@ def calculate_val_lraps_VQ(model, val_dataset, val_loader, device):
     return lrap_score
 
 
+def print_parameters(parameters):
+    separator = "=" * 80
+    title = " THE PARAMETERS YOU USE "
+    
+    print(f"\n\n{separator}")
+    print(f"{title.center(80, '=')}")
+    print(f"{separator}")
+    
+    print(f"{'MODEL:'.ljust(20)} {parameters['model_name']}")
+    print(f"{'BATCH_SIZE:'.ljust(20)} {parameters['batch_size']}")
+    print(f"{'LOSS:'.ljust(20)} {parameters['loss']}")
+    freeze_layers = parameters.get('num_layers_to_freeze', 0)
+    print(f"{'FREEZING:'.ljust(20)} {freeze_layers} LAYERS")
+    print(f"{'USING VQ:'.ljust(20)} {parameters['VQ']}")
+    print(f"{separator}\n")

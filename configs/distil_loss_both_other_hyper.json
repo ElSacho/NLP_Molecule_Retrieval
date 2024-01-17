@@ -1,0 +1,32 @@
+{
+    "expt_name": "distil_both_lamba_0.6",
+    "log_dir":"loss",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "epochs_decay" : 7,
+    "batch_size_add" : 22,
+  
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+
+    "model_name": "distilbert-base-uncased",
+    "num_layers_to_freeze" : 0,
+    "VQ": false,
+
+    "loss" : "triplet and contrastive",
+    "t_max" : 0.8,
+    "lambda_param" : 0.1,
+    "margin_delta" : 0.3,
+    "lambda_contra": 0.3,
+  
+    "nb_epochs": 200,
+    "batch_size": 100,
+    "print_every": 50,
+  
+    "learning_rate": 3e-04,
+    "weight_decay": 1.01,
+  
+    "load_model_path": "None"
+  }

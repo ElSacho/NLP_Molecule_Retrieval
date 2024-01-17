@@ -53,8 +53,10 @@ def make_csv_online(model, test_loader, test_text_loader, device, name=None):
 
     if name == None:
         solution.to_csv('submission.csv', index=False)
+        print("New submission file available with the name submission.csv")
     else:
         solution.to_csv(f'{name}.csv', index=False)
+        print("New submission file available with the name ", name ,".csv")
 
 def generate_csv(config_path):
     with open(config_path, 'r') as file:
