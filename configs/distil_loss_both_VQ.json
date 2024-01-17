@@ -1,6 +1,6 @@
 {
-    "expt_name": "distil_both_hyper",
-    "log_dir":"fine_tune",
+    "expt_name": "distil_both_VQ",
+    "log_dir":"VQ",
     "model_path": "models/oneHead_LinearNLP.py",
 
     "epochs_decay" : 8,
@@ -14,14 +14,16 @@
 
     "model_name": "distilbert-base-uncased",
     "num_layers_to_freeze" : 0,
-    "VQ": false,
+    "VQ": true,
+    "num_embeddings": 50000,
+    "beta": 0.25,
 
     "loss" : "triplet and contrastive",
     "t_max" : 0.8,
     "lambda_param" : 0.1,
     "margin_delta" : 0.3,
     "lambda_contra": 1.0,
-
+    "lambda_vq": 0.1,
 
     "nb_epochs": 200,
     "batch_size": 100,
@@ -31,5 +33,5 @@
     "weight_decay": 1.01,
   
     "load_model_path": "None",
-    "save_path": "distil_both_loss.pt"
+    "save_path": "distil_both_loss_VQ.pt"
   }

@@ -28,5 +28,6 @@
     "learning_rate": 3e-05,
     "weight_decay": 1.01,
   
-    "load_model_path": "model_checkpoint2.pt"
+    "load_model_path": "model_checkpoint2.pt",
+    "save_path": "distil_both_loss.pt"
   }

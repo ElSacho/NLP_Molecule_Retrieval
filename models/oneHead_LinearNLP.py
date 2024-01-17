@@ -160,7 +160,8 @@ class Model(nn.Module):
         if self.vq :
             quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
             quantized_text, quantization_loss_text = self.quantization(text_encoded)
-            return graph_encoded, text_encoded, quantization_loss_graph, quantization_loss_text
+            self.quantization_loss = quantization_loss_graph + quantization_loss_text
+            return graph_encoded, text_encoded
         return graph_encoded, text_encoded
     
     def freeze_layers(self, num_layers_to_freeze):

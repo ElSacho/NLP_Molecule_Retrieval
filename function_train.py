@@ -83,10 +83,13 @@ def train_conf(config_path, best_lraps):
     
     weight_decay = parameters['weight_decay']
     learning_rate = parameters['learning_rate']
-
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
-                                    betas=(0.9, 0.999),
-                                    weight_decay=weight_decay)
+    
+    if parameters.get("use_SGD", False):
+        optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    else:
+        optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
+                                        betas=(0.9, 0.999),
+                                        weight_decay=weight_decay)
     
 
     # print("Poids avant le chargement :")
@@ -172,6 +175,8 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
                     current_loss = cosine_similarity_loss(x_graph, x_text)
                 else:
                     current_loss = contrastive_loss(x_graph, x_text)
+                if parameters['VQ']:
+                    current_loss += model.quantization_loss * parameters.get("lambda_vq", 1e-02)
                     
                 optimizer.zero_grad()
                 current_loss.backward()
@@ -220,6 +225,8 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
                     current_loss = cosine_similarity_loss(x_graph, x_text)
                 else:
                     current_loss = contrastive_loss(x_graph, x_text)
+                if parameters['VQ']:
+                    current_loss += model.quantization_loss * parameters.get("lambda_vq", 1e-02)
                     
                 val_loss += current_loss.item()
                 torch.cuda.empty_cache() # test to liberate memory space
@@ -238,6 +245,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         time2 = time.time()
         if best_lraps==lraps:
             print('lraps improoved saving checkpoint...')
+            save_path = parameters.get("save_path", "'model_checkpoint.pt'")
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps, "time : ", time2 - time1)
             torch.save({
             'epoch': epoch,
@@ -245,7 +253,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
             # 'optimizer_state_dict': optimizer.state_dict(),
             'validation_accuracy': val_loss,
             'loss': loss,
-            }, 'model_checkpoint_sci_pretrained.pt')
+            }, save_path)
             try:
                 make_csv_online(model, test_loader, test_text_loader, device, name=parameters['expt_name'])
             except Exception as e:
