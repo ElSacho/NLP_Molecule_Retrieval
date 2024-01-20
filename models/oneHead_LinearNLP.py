@@ -30,9 +30,9 @@ class GraphEncoderOneHead(nn.Module):
             self.conv2 = SAGEConv(graph_hidden_channels, graph_hidden_channels)
             self.conv3 = SAGEConv(graph_hidden_channels, graph_hidden_channels)
         elif parameters.get("use_cheb", False):
-            self.conv1 = ChebConv(num_node_features, graph_hidden_channels, self.cheb_k)
-            self.conv2 = ChebConv(graph_hidden_channels, graph_hidden_channels, self.cheb_k)
-            self.conv3 = ChebConv(graph_hidden_channels, graph_hidden_channels, self.cheb_k)
+            self.conv1 = ChebConv(num_node_features, graph_hidden_channels, parameters.get("num_chem", 4))
+            self.conv2 = ChebConv(graph_hidden_channels, graph_hidden_channels, parameters.get("num_chem", 4))
+            self.conv3 = ChebConv(graph_hidden_channels, graph_hidden_channels, parameters.get("num_chem", 4))
         else:
             self.conv1 = GCNConv(num_node_features, graph_hidden_channels)
             self.conv2 = GCNConv(graph_hidden_channels, graph_hidden_channels)
@@ -50,6 +50,7 @@ class GraphEncoderOneHead(nn.Module):
         self.mol_hidden1 = nn.Linear(graph_hidden_channels, nhid)
         self.mol_hidden2 = nn.Linear(nhid, nhid)
         self.mol_hidden3 = nn.Linear(nhid, nhid)
+        
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # for _ in range(mlp_layers):
         # #     self.mol_hiddens.append(nn.Linear(nhid, nhid).to(device))
@@ -149,6 +150,9 @@ class Model(nn.Module):
         self.text_encoder = TextEncoder(parameters)
         self.param = parameters
         # print(self.text_encoder)
+        self.temp_value = parameters.get("temperature", 0)
+        if self.temp_value != 0:
+            self.temp = nn.Parameter(torch.Tensor([parameters.get("temperature", 0)])) 
         self.vq = parameters['VQ']
         if self.vq :
             self.quantization = QuantizationLayer(parameters)
@@ -157,6 +161,9 @@ class Model(nn.Module):
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
+        if self.temp_value !=0:
+            graph_encoded = graph_encoded * torch.exp(self.temp)
+            text_encoded = text_encoded * torch.exp(self.temp)
         if self.vq :
             quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
             quantized_text, quantization_loss_text = self.quantization(text_encoded)

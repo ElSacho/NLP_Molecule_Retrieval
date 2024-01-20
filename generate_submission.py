@@ -52,11 +52,13 @@ def make_csv_online(model, test_loader, test_text_loader, device, name=None):
     solution = solution[['ID'] + [col for col in solution.columns if col!='ID']]
 
     if name == None:
-        solution.to_csv('submission.csv', index=False)
+        file_path = os.path.join('submissions', 'submission.csv')
+        solution.to_csv(file_path, index=False)
         print("New submission file available with the name submission.csv")
     else:
-        solution.to_csv(f'{name}.csv', index=False)
-        print("New submission file available with the name ", name ,".csv")
+        file_path = os.path.join('submissions', f'{name}.csv')
+        solution.to_csv(file_path, index=False)
+        print(f"New submission file available with the name {name}.csv")
 
 def generate_csv(config_path):
     with open(config_path, 'r') as file:

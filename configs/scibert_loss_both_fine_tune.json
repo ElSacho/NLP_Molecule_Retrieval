@@ -1,0 +1,33 @@
+{
+    "expt_name": "scibert_both_load",
+    "log_dir":"scibert_fine_tune",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "epochs_decay" : 10,
+    "batch_size_add" : 3,
+  
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "mlp_layers": 2,
+
+    "model_name": "allenai/scibert_scivocab_uncased",
+    "num_layers_to_freeze" : 0,
+    "VQ": false,
+
+    "loss" : "triplet and contrastive",
+    "lambda_param" : 0.1,
+    "margin_delta" : 0.3,
+    "lambda_contra": 0.0,
+  
+    "nb_epochs": 200,
+    "batch_size": 80,
+    "print_every": 100,
+  
+    "learning_rate": 1e-05,
+    "weight_decay": 1.01,
+  
+    "load_model_path": "model_checkpoint2.pt",
+    "save_path": "model_checkpoint.pt"
+  }

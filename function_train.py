@@ -86,6 +86,14 @@ def train_conf(config_path, best_lraps):
     
     if parameters.get("use_SGD", False):
         optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    elif parameters.get("load_LR_model", False):
+        text_encoder_params = model.text_encoder.parameters()
+        graph_encoder_params = model.graph_encoder.parameters()
+        text_encoder_lr = parameters.get("text_encoder_lr", 1e-06)
+        optimizer = optim.AdamW([
+                    {'params': graph_encoder_params, 'lr': learning_rate, 'weight_decay': weight_decay},
+                    {'params': text_encoder_params, 'lr': text_encoder_lr, 'weight_decay': weight_decay}
+                ])
     else:
         optimizer = optim.AdamW(model.parameters(), lr=learning_rate,
                                         betas=(0.9, 0.999),
@@ -245,7 +253,8 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         time2 = time.time()
         if best_lraps==lraps:
             print('lraps improoved saving checkpoint...')
-            save_path = parameters.get("save_path", "'model_checkpoint.pt'")
+            save_path = parameters.get("save_path", "model_checkpoint.pt")
+            save_path = os.path.join('pt', save_path)
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps, "time : ", time2 - time1)
             torch.save({
             'epoch': epoch,

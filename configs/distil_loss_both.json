@@ -1,6 +1,6 @@
 {
-    "expt_name": "distil_both_hyper",
-    "log_dir":"fine_tune",
+    "expt_name": "distil_both_hyper_LR",
+    "log_dir":"LR",
     "model_path": "models/oneHead_LinearNLP.py",
 
     "epochs_decay" : 8,
@@ -20,14 +20,13 @@
     "t_max" : 0.8,
     "lambda_param" : 0.1,
     "margin_delta" : 0.3,
-    "lambda_contra": 1.0,
-
+    "lambda_contra": 0.6,
 
     "nb_epochs": 200,
     "batch_size": 100,
     "print_every": 50,
   
-    "learning_rate": 3e-04,
+    "learning_rate": 3e-05,
     "weight_decay": 1.01,
   
     "load_model_path": "None",
