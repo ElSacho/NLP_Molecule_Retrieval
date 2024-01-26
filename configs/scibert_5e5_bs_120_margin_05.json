@@ -1,0 +1,36 @@
+{
+    "expt_name": "scibert_5e5_margin_05_bs_120",
+    "log_dir":"scibert_fine_tune_margin_bs",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "epochs_decay" : 8,
+    "batch_size_add" : 0,
+  
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "mlp_layers": 2,
+    "use_cheb": true,
+    "num_chem": 6,
+    "temperature": 0.07,
+
+    "model_name": "allenai/scibert_scivocab_uncased",
+    "num_layers_to_freeze" : 12,
+    "VQ": false,
+
+    "loss" : "triplet and contrastive",
+    "lambda_param" : 0.1,
+    "margin_delta" : 0.5,
+    "lambda_contra": 1.0,
+  
+    "nb_epochs": 200,
+    "batch_size": 120,
+    "print_every": 100,
+  
+    "learning_rate": 5e-05,
+    "weight_decay": 1.01,
+  
+    "load_model_path": "scibert_5e5.pt",
+    "save_path": "scibert_5e5.pt"
+  }

@@ -2,14 +2,14 @@ from torch import nn
 import torch.nn.functional as F
 
 from torch_geometric.nn import GCNConv
-from torch_geometric.nn import global_mean_pool
+from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool
 from transformers import AutoModel, BertModel
 
 from models.quantization import QuantizationLayer
 
 import torch
 import torch.nn as nn
-from torch_geometric.nn import GCNConv, global_mean_pool, GATConv, BatchNorm, SAGEConv, ChebConv
+from torch_geometric.nn import GCNConv, global_mean_pool, GATConv, BatchNorm, SAGEConv, ChebConv, GINConv, EdgeConv, MessagePassing, TransformerConv
 
 class GraphEncoderOneHead(nn.Module):
     def __init__(self, parameters):            
@@ -18,6 +18,7 @@ class GraphEncoderOneHead(nn.Module):
         nout = parameters['nout']
         nhid = parameters['nhid']
         graph_hidden_channels = parameters['graph_hidden_channels']
+        self.pooling = parameters.get("pool", "mean")
         # mlp_layers = parameters['mlp_layers']
         num_heads = 1
         
@@ -33,6 +34,26 @@ class GraphEncoderOneHead(nn.Module):
             self.conv1 = ChebConv(num_node_features, graph_hidden_channels, parameters.get("num_chem", 4))
             self.conv2 = ChebConv(graph_hidden_channels, graph_hidden_channels, parameters.get("num_chem", 4))
             self.conv3 = ChebConv(graph_hidden_channels, graph_hidden_channels, parameters.get("num_chem", 4))
+        elif parameters.get("use_gin", False):
+            self.conv1 = GINConv(nn.Linear(num_node_features, graph_hidden_channels))
+            self.conv2 = GINConv(nn.Linear(graph_hidden_channels, graph_hidden_channels))
+            self.conv3 = GINConv(nn.Linear(graph_hidden_channels, graph_hidden_channels))
+        elif parameters.get("use_GAT", False):
+            self.conv1 = GATConv(num_node_features, graph_hidden_channels, heads=num_heads)
+            self.conv2 = GATConv(graph_hidden_channels, graph_hidden_channels, heads=num_heads)
+            self.conv3 = GATConv(graph_hidden_channels, graph_hidden_channels, heads=num_heads)
+        elif parameters.get("use_edge", False):
+            self.conv1 = EdgeConv(nn.Linear(num_node_features, graph_hidden_channels))
+            self.conv2 = EdgeConv(nn.Linear(graph_hidden_channels, graph_hidden_channels))
+            self.conv3 = EdgeConv(nn.Linear(graph_hidden_channels, graph_hidden_channels))
+        elif parameters.get("use_mp", False):
+            self.conv1 = MessagePassing(nn.Linear(num_node_features, graph_hidden_channels))
+            self.conv2 = MessagePassing(nn.Linear(graph_hidden_channels, graph_hidden_channels))
+            self.conv3 = MessagePassing(nn.Linear(graph_hidden_channels, graph_hidden_channels))
+        elif parameters.get("use_transformers_conv", False):
+            self.conv1 = TransformerConv(num_node_features, graph_hidden_channels)
+            self.conv2 = TransformerConv(graph_hidden_channels, graph_hidden_channels)
+            self.conv3 = TransformerConv(graph_hidden_channels, graph_hidden_channels)
         else:
             self.conv1 = GCNConv(num_node_features, graph_hidden_channels)
             self.conv2 = GCNConv(graph_hidden_channels, graph_hidden_channels)
@@ -51,18 +72,15 @@ class GraphEncoderOneHead(nn.Module):
         self.mol_hidden2 = nn.Linear(nhid, nhid)
         self.mol_hidden3 = nn.Linear(nhid, nhid)
         
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # for _ in range(mlp_layers):
-        # #     self.mol_hiddens.append(nn.Linear(nhid, nhid).to(device))
-        # self.mol_hiddens = nn.ModuleList()
-        # for _ in range(mlp_layers):
-        #     self.mol_hiddens.append(nn.Linear(nhid, nhid))
         self.mol_hidden4 = nn.Linear(nhid, nout)
 
     def forward(self, graph_batch):
         x, edge_index, batch = graph_batch.x, graph_batch.edge_index, graph_batch.batch
         
         # Apply GCN layers with residual connections
+        y = self.relu(self.bn1(self.conv1(x, edge_index)))
+        # print(y.shape)
+        # print(x.shape)
         x = self.relu(self.bn1(self.conv1(x, edge_index))) + x
         x = self.relu(self.bn2(self.conv2(x, edge_index))) + x
         x = self.relu(self.bn3(self.conv3(x, edge_index))) + x
@@ -71,7 +89,14 @@ class GraphEncoderOneHead(nn.Module):
         x = self.relu(self.bn_attention(self.attention(x, edge_index))) + x
 
         # Pooling and linear layers
-        x = global_mean_pool(x, batch)
+        
+        if self.pooling == "add":
+            x = global_add_pool(x, batch)
+        elif self.pooling == "max":
+            x = global_max_pool(x, batch)
+        else:
+            x = global_mean_pool(x, batch)
+            
         x = self.relu(self.mol_hidden1(x))
         # if len(self.mol_hiddens) > 0:
         #     for mlp_layer in self.mol_hiddens:

@@ -109,7 +109,7 @@ def train_conf(config_path, best_lraps):
 
     if parameters['load_model_path'] != "None":
         try : 
-            checkpoint = torch.load(parameters['load_model_path'])
+            checkpoint = torch.load("pt/"+parameters['load_model_path'])
             model.load_state_dict(checkpoint['model_state_dict'])
             print("=== WE SUCCESSFULLY LOADED THE WEIGHTS OF A PREVIOUS MODEL ===")
             # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
