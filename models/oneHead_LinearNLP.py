@@ -115,16 +115,21 @@ class TextEncoder(nn.Module):
     def __init__(self, parameters):
         super(TextEncoder, self).__init__()
         self.bert = AutoModel.from_pretrained(parameters['model_name'])
+        print(self.bert)
         nout = parameters['nout']
         self.linear = nn.Linear(self.bert.config.hidden_size, nout)
         self.norm = nn.LayerNorm(nout)
         num_layers_to_freeze = parameters.get('num_layers_to_freeze', 0)
         if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
             self.max_number_to_freeze_scibert()
+        elif parameters['model_name'] == "seyonec/ChemBERTa-zinc-base-v1":
+            self.max_number_to_freeze_scibert()
         else:
             self.max_number_to_freeze()
         if num_layers_to_freeze != 0:
             if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
+                self.freeze_layers_scibert(num_layers_to_freeze)
+            elif parameters['model_name'] == "seyonec/ChemBERTa-zinc-base-v1":
                 self.freeze_layers_scibert(num_layers_to_freeze)
             else:
                 self.freeze_layers(num_layers_to_freeze)
@@ -149,6 +154,14 @@ class TextEncoder(nn.Module):
             max_layers_to_freeze += 1
         self.max_layers_to_freeze = max_layers_to_freeze
         print("The max number of freezable layers is : ",max_layers_to_freeze)
+        
+    def max_number_to_freeze_chem(self):
+        max_layers_to_freeze = 0
+        for layer in self.encoder.layer:
+            max_layers_to_freeze += 1
+        self.max_layers_to_freeze = max_layers_to_freeze
+        print("The max number of freezable layers is : ",max_layers_to_freeze)
+
     
     def freeze_layers(self, num_layers_to_freeze):
         frozen_layers = 0
@@ -160,11 +173,21 @@ class TextEncoder(nn.Module):
                 frozen_layers += 1
             else:
                 break
+            
+    def freeze_layers_chem(self, num_layers_to_freeze):
+        frozen_layers = 0
+        print("Freezing", num_layers_to_freeze, "layers")
+        for layer in self.encoder.layer:
+            if frozen_layers < num_layers_to_freeze:
+                for param in layer.parameters():
+                    param.requires_grad = False
+                frozen_layers += 1
+            else:
+                break
     
     def freeze_layers_scibert(self, num_layers_to_freeze):
         print("freezing ",num_layers_to_freeze, " layers")
         for layer in self.bert.encoder.layer[:num_layers_to_freeze]:
-            print(layer)
             for param in layer.parameters():
                 param.requires_grad = False
 
@@ -199,6 +222,8 @@ class Model(nn.Module):
     def freeze_layers(self, num_layers_to_freeze):
         if self.param['model_name'] == "allenai/scibert_scivocab_uncased":
             self.text_encoder.freeze_layers_scibert(num_layers_to_freeze)
+        elif self.param['model_name'] == "seyonec/ChemBERTa-zinc-base-v1":
+            self.text_encoder.freeze_layers_chem(num_layers_to_freeze)
         else:
             self.text_encoder.freeze_layers(num_layers_to_freeze)
     
