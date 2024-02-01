@@ -10,6 +10,39 @@ import pandas as pd
 
 import os
 
+def calculate_val_lraps_text(model, val_dataset, val_loader, device, parameters):
+    graph_embeddings = []
+    text_embeddings = []
+
+    for batch in val_loader:        
+        x_text = batch.text_embedding.to(device)
+        x_text = batch.text_embedding.view(-1, parameters['nout']).to(device)
+        graph_batch = batch
+        graph_batch.pop('text_embedding')  # Remove the text embedding from the graph batch
+
+        x_graph = model(graph_batch.to(device))
+        graph_embeddings.append(x_graph.tolist())
+        text_embeddings.append(x_text.tolist())
+
+    num_samples = len(val_dataset)
+    true_labels = np.eye(num_samples)
+
+    # Flatten les embeddings pour les aligner avec la forme attendue par cosine_similarity
+    
+    graph_embeddings_flat = [item for sublist in graph_embeddings for item in sublist]
+    text_embeddings_flat = [item for sublist in text_embeddings for item in sublist]
+
+    # Calcul de la similarité cosinus entre les embeddings
+    
+    similarity = cosine_similarity(text_embeddings_flat, graph_embeddings_flat)
+
+    # Calcul du LRAPS
+    
+    lrap_score = label_ranking_average_precision_score(true_labels, similarity)
+    
+    return lrap_score
+
+
 def calculate_val_lraps(model, val_dataset, val_loader, device):
     graph_embeddings = []
     text_embeddings = []

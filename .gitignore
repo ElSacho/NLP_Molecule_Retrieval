@@ -2,3 +2,4 @@ data
 *.csv
 *.pt
 logs_ft/
+final_logs/

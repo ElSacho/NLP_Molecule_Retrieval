@@ -1,7 +1,8 @@
 import torch
 import torch.nn.functional as F
 
-from dataloader import GraphTextDataset, GraphDataset, TextDataset
+from dataloader import GraphDataset, TextDataset
+from dataloaderFt import GraphTextDatasetFineTune
 from torch_geometric.data import DataLoader
 from torch.utils.data import DataLoader as TorchDataLoader
 # from ModelOneHeadNLP import Model
@@ -21,32 +22,43 @@ import sys
 
 from models.oneHead_LinearNLP import Model
 
+from make_new_dataset import make_new_dataset
+
 # from models.disciminator import Discriminator
 from losses import wgan_gp_loss, triplet_loss_sim, contrastive_loss, cosine_similarity_loss
 from torchvision import datasets, transforms
 
 import json
 
-from utils import calculate_val_lraps, calculate_val_lraps_VQ, print_parameters
+from utils import calculate_val_lraps, calculate_val_lraps_VQ, print_parameters, calculate_val_lraps_text
 from generate_submission import make_csv_online
 
 
 def train(list_config_path):
     best_lraps = 0
     for config_path in list_config_path:
+        make_new_dataset([config_path])
         best_lraps = train_conf(config_path, best_lraps)
 
 def train_conf(config_path, best_lraps):
     
     with open(config_path, 'r') as file:
         parameters = json.load(file)
+        
+    parameters['batch_size'] = 3_000
+    parameters['margin_delta'] = 0.8
+    parameters['lambda_contra'] = 0.0
+    parameters["print_every"] =  5
+    parameters["expt_name"] += "f_t_new_dataset"
+    parameters["log_dir"] += "f_t_new_dataset"
+    parameters["load_model_path"] = parameters["save_path"]
 
     model_name = parameters['model_name']
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     gt = np.load("../data/token_embedding_dict.npy", allow_pickle=True)[()]
-    val_dataset = GraphTextDataset(root='../data/', gt=gt, split='val', tokenizer=tokenizer)
-    train_dataset = GraphTextDataset(root='../data/', gt=gt, split='train', tokenizer=tokenizer)
+    val_dataset = GraphTextDatasetFineTune(root='../data/', gt=gt, split='val',parameters= parameters, tokenizer=tokenizer)
+    train_dataset = GraphTextDatasetFineTune(root='../data/', gt=gt, split='train',parameters= parameters, tokenizer=tokenizer)
     
     test_cids_dataset = GraphDataset(root='../data/', gt=gt, split='test_cids')
     test_text_dataset = TextDataset(file_path='../data/test_text.txt', tokenizer=tokenizer)
@@ -120,6 +132,8 @@ def train_conf(config_path, best_lraps):
     # print(model.text_encoder.bert.embeddings.LayerNorm.weight)
     print("==========================================================", end='\n\n')
     print('Start training')
+    
+    model = model.get_graph_encoder()
 
     best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, test_loader, test_text_loader, printEvery = parameters.get("print_every", 1))
 
@@ -146,29 +160,18 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
     cmt = 1
         
     for epoch in range(nb_epochs):
+        
         print('-----EPOCH{}-----'.format(epoch+1))
         model.train()
         count_iter = 0
         for batch in train_loader:
             try:
-                if epoch == cmt * parameters.get('epochs_decay', -1):
-                    if model.max_layers_to_freeze >= cmt:
-                        model.freeze_layers(cmt)
-                        train_loader = DataLoader(train_dataset, batch_size = parameters['batch_size'] + parameters['batch_size_add']*cmt, shuffle=True)
-                        print('Freezed ', cmt,' layers and batch size of :', parameters['batch_size'] + parameters['batch_size_add']*cmt )
-                    else:
-                        print("The model is fully freezed")
-                    cmt += 1
-                    
-                input_ids = batch.input_ids
-                batch.pop('input_ids') # This is likely done to prevent the input_ids from being processed in the subsequent graph operations, as they might be handled separately.
-                attention_mask = batch.attention_mask
-                batch.pop('attention_mask')
+                x_text = batch.text_embedding.to(device)
+                x_text = batch.text_embedding.view(-1, parameters['nout']).to(device)
                 graph_batch = batch
-                
-                x_graph, x_text = model(graph_batch.to(device), 
-                                        input_ids.to(device), 
-                                        attention_mask.to(device))
+                graph_batch.pop('text_embedding')  # Remove the text embedding from the graph batch
+
+                x_graph = model(graph_batch.to(device))
                 
                 if parameters["loss"] == "contrastive":
                     current_loss = contrastive_loss(x_graph, x_text)
@@ -203,6 +206,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
                 print('An error occurred during training:', e)
 
         writer.add_scalar('Loss/train', loss, epoch)
+        
         loss = 0
         model.eval()
         torch.cuda.empty_cache()
@@ -210,15 +214,12 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         val_loss = 0        
         for batch in val_loader:
             try:
-                input_ids = batch.input_ids
-                batch.pop('input_ids')
-                attention_mask = batch.attention_mask
-                batch.pop('attention_mask')
+                x_text = batch.text_embedding.to(device)
+                x_text = batch.text_embedding.view(-1, parameters['nout']).to(device)
                 graph_batch = batch
-                
-                x_graph, x_text = model(graph_batch.to(device), 
-                                        input_ids.to(device), 
-                                        attention_mask.to(device))
+                graph_batch.pop('text_embedding')  # Remove the text embedding from the graph batch
+
+                x_graph = model(graph_batch.to(device))
                 
                 if parameters["loss"] == "contrastive":
                     current_loss = contrastive_loss(x_graph, x_text)
@@ -242,7 +243,7 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
                 torch.cuda.empty_cache()
                 print('An error occurred during validation:', e)
         try:
-            lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
+            lraps = calculate_val_lraps_text(model, val_dataset, val_loader, device, parameters)
         except Exception as e:
             print('An error occurred during calculate_val_lraps:', e)
         torch.cuda.empty_cache() # test to liberate memory space
@@ -253,22 +254,33 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         time2 = time.time()
         if best_lraps==lraps:
             print('lraps improoved saving checkpoint...')
-            save_path = parameters.get("save_path", "model_checkpoint.pt")
-            save_path = os.path.join('pt', save_path)
-            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps, "time : ", time2 - time1)
+            save_path = parameters.get("save_path", "model_checkpoint")
+            save_path = os.path.join('pt', f"{save_path}_graph")
+            print('-----EPOCH'+str(epoch+1)+'----- done')
             torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
             # 'optimizer_state_dict': optimizer.state_dict(),
-            'validation_accuracy': val_loss,
             'loss': loss,
             }, save_path)
-            try:
-                make_csv_online(model, test_loader, test_text_loader, device, name=parameters['expt_name'])
-            except Exception as e:
-                print('Could not generate the csv file because of the error :', e)
+            # try:
+            #     make_csv_online(model, test_loader, test_text_loader, device, name=parameters['expt_name'])
+            # except Exception as e:
+            #     print('Could not generate the csv file because of the error :', e)
+            print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps, "best current LRAPS is :",  best_lraps, "time : ", time2 - time1)
         else :
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps, "best current LRAPS is :",  best_lraps, "time : ", time2 - time1)
         torch.cuda.empty_cache() # test to liberate memory space
         
     return best_lraps
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python generate.py <file_path>")
+        sys.exit(1)
+
+    # Le premier argument après le nom du script est le file_path
+    file_path = sys.argv[1]
+
+    list_config_path = [file_path]
+    train(list_config_path)

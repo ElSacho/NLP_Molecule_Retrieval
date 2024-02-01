@@ -1,0 +1,38 @@
+{
+    "expt_name": "beta_0_8_and_0_999",
+    "log_dir":"betas",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "epochs_decay" : 8,
+    "batch_size_add" : 4,
+  
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "mlp_layers": 2,
+    "use_transformers_conv": true,
+    "temperature": 0.50,
+    "pool": "max",
+
+    "model_name": "allenai/scibert_scivocab_uncased",
+    "num_layers_to_freeze" : 0,
+    "VQ": false,
+
+    "loss" : "triplet and contrastive",
+    "lambda_param" : 0.1,
+    "margin_delta" : 0.6,
+    "lambda_contra": 1.0,
+  
+    "nb_epochs": 200,
+    "batch_size": 32,
+    "print_every": 100,
+  
+    "learning_rate": 1e-05,
+    "weight_decay": 1.01,
+    "beta1" : 0.8,
+    "beta2" : 0.999,
+  
+    "load_model_path": "None",
+    "save_path": "beta_0_8_and_0_999.pt"
+  }

@@ -209,9 +209,9 @@ class Model(nn.Module):
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
-        if self.temp_value !=0:
-            graph_encoded = graph_encoded * torch.exp(self.temp)
-            text_encoded = text_encoded * torch.exp(self.temp)
+        # if self.temp_value !=0:
+        #     graph_encoded = graph_encoded * torch.exp(self.temp)
+        #     text_encoded = text_encoded * torch.exp(self.temp)
         if self.vq :
             quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
             quantized_text, quantization_loss_text = self.quantization(text_encoded)
