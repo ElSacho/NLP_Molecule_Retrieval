@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool
 from transformers import AutoModel, BertModel
+from torch.nn import Dropout
 
 from models.quantization import QuantizationLayer
 
@@ -19,6 +20,10 @@ class GraphEncoderOneHead(nn.Module):
         nhid = parameters['nhid']
         graph_hidden_channels = parameters['graph_hidden_channels']
         self.pooling = parameters.get("pool", "mean")
+        self.use_dropout = parameters.get("use_dropout", False)
+        if self.use_dropout:
+            dropout_rate = parameters.get("dropout_rate", 0.5)
+            self.dropout = Dropout(p=dropout_rate)
         # mlp_layers = parameters['mlp_layers']
         num_heads = 1
         
@@ -75,41 +80,77 @@ class GraphEncoderOneHead(nn.Module):
         self.mol_hidden4 = nn.Linear(nhid, nout)
 
     def forward(self, graph_batch):
-        x, edge_index, batch = graph_batch.x, graph_batch.edge_index, graph_batch.batch
-        
-        # Apply GCN layers with residual connections
-        y = self.relu(self.bn1(self.conv1(x, edge_index)))
-        # print(y.shape)
-        # print(x.shape)
-        x = self.relu(self.bn1(self.conv1(x, edge_index))) + x
-        x = self.relu(self.bn2(self.conv2(x, edge_index))) + x
-        x = self.relu(self.bn3(self.conv3(x, edge_index))) + x
-
-        # Apply attention mechanism with residual connection
-        x = self.relu(self.bn_attention(self.attention(x, edge_index))) + x
-
-        # Pooling and linear layers
-        
-        if self.pooling == "add":
-            x = global_add_pool(x, batch)
-        elif self.pooling == "max":
-            x = global_max_pool(x, batch)
-        else:
-            x = global_mean_pool(x, batch)
+        if not self.use_dropout:
+            x, edge_index, batch = graph_batch.x, graph_batch.edge_index, graph_batch.batch
             
-        x = self.relu(self.mol_hidden1(x))
-        # if len(self.mol_hiddens) > 0:
-        #     for mlp_layer in self.mol_hiddens:
-        #         x = self.relu(mlp_layer(x))
-        
-        # if len(self.mol_hiddens) > 0:
-        #     for mlp_layer in self.mol_hiddens:
-        #         x = self.relu(mlp_layer(x))
-        x = self.relu(self.mol_hidden2(x))
-        x = self.relu(self.mol_hidden3(x))
-        x = self.mol_hidden4(x)
+            x = self.relu(self.bn1(self.conv1(x, edge_index))) + x
+            x = self.relu(self.bn2(self.conv2(x, edge_index))) + x
+            x = self.relu(self.bn3(self.conv3(x, edge_index))) + x
 
-        return x
+            # Apply attention mechanism with residual connection
+            x = self.relu(self.bn_attention(self.attention(x, edge_index))) + x
+
+            # Pooling and linear layers
+            
+            if self.pooling == "add":
+                x = global_add_pool(x, batch)
+            elif self.pooling == "max":
+                x = global_max_pool(x, batch)
+            else:
+                x = global_mean_pool(x, batch)
+                
+            x = self.relu(self.mol_hidden1(x))
+            x = self.relu(self.mol_hidden2(x))
+            x = self.relu(self.mol_hidden3(x))
+            x = self.mol_hidden4(x)
+
+            return x
+        else:
+            x, edge_index, batch = graph_batch.x, graph_batch.edge_index, graph_batch.batch
+    
+            # Convolutional layers with ReLU activation and Dropout
+            x = self.relu(self.bn1(self.conv1(x, edge_index))) + x
+            x = self.dropout(x)  # Dropout after first convolutional layer
+            x = self.relu(self.bn2(self.conv2(x, edge_index))) + x
+            x = self.dropout(x)  # Dropout after second convolutional layer
+            x = self.relu(self.bn3(self.conv3(x, edge_index))) + x
+            x = self.dropout(x)  # Dropout after third convolutional layer
+
+            # Apply attention mechanism with residual connection
+            x = self.relu(self.bn_attention(self.attention(x, edge_index))) + x
+            x = self.dropout(x)  # Dropout after attention mechanism
+
+            # Pooling
+            if self.pooling == "add":
+                x = global_add_pool(x, batch)
+            elif self.pooling == "max":
+                x = global_max_pool(x, batch)
+            else:
+                x = global_mean_pool(x, batch)
+                
+            # Linear layers with ReLU activation and Dropout
+            x = self.relu(self.mol_hidden1(x))
+            x = self.dropout(x)  # Dropout after first linear layer
+            x = self.relu(self.mol_hidden2(x))
+            x = self.dropout(x)  # Dropout after second linear layer
+            x = self.relu(self.mol_hidden3(x))
+            x = self.dropout(x)  # Dropout after third linear layer
+            x = self.mol_hidden4(x)  # No dropout before the final output
+
+            return x
+    
+    def mutate(self, mutation_rate):
+        with torch.no_grad():  # Nous ne voulons pas de gradients pendant la mutation
+            for param in self.parameters():
+                # Crée un masque de la même taille que le paramètre
+                # Le masque est vrai avec une probabilité égale au pourcentage
+                mask = torch.rand_like(param) < (mutation_rate)
+
+                # Génère de nouveaux poids aléatoires
+                new_weights = torch.randn_like(param)
+
+                # Applique la mutation aux poids sélectionnés
+                param[mask] = new_weights[mask]
     
 class TextEncoder(nn.Module):
     def __init__(self, parameters):
@@ -184,6 +225,24 @@ class TextEncoder(nn.Module):
                 frozen_layers += 1
             else:
                 break
+            
+    def mutate(self, mutation_rate, layer_to_mutate = 12):
+        frozen_layers = 0
+        for layer in self.bert.encoder.layer:
+            frozen_layers += 1
+            if frozen_layers == layer_to_mutate:
+                for param in layer.parameters():
+                    with torch.no_grad():  # Nous ne voulons pas de gradients pendant la mutation
+                        for param in self.parameters():
+                            # Crée un masque de la même taille que le paramètre
+                            # Le masque est vrai avec une probabilité égale au pourcentage
+                            mask = torch.rand_like(param) < (mutation_rate)
+
+                            # Génère de nouveaux poids aléatoires
+                            new_weights = torch.randn_like(param)
+
+                            # Applique la mutation aux poids sélectionnés
+                            param[mask] = new_weights[mask]
     
     def freeze_layers_scibert(self, num_layers_to_freeze):
         print("freezing ",num_layers_to_freeze, " layers")
@@ -209,9 +268,9 @@ class Model(nn.Module):
     def forward(self, graph_batch, input_ids, attention_mask):
         graph_encoded = self.graph_encoder(graph_batch)
         text_encoded = self.text_encoder(input_ids, attention_mask)
-        # if self.temp_value !=0:
-        #     graph_encoded = graph_encoded * torch.exp(self.temp)
-        #     text_encoded = text_encoded * torch.exp(self.temp)
+        if self.temp_value !=0:
+            graph_encoded = graph_encoded * torch.exp(self.temp)
+            text_encoded = text_encoded * torch.exp(self.temp)
         if self.vq :
             quantized_graph, quantization_loss_graph = self.quantization(graph_encoded)
             quantized_text, quantization_loss_text = self.quantization(text_encoded)
@@ -226,6 +285,10 @@ class Model(nn.Module):
             self.text_encoder.freeze_layers_chem(num_layers_to_freeze)
         else:
             self.text_encoder.freeze_layers(num_layers_to_freeze)
+            
+    def mutate(self, mutation_rate):
+        self.text_encoder.mutate(mutation_rate = mutation_rate)
+        # self.graph_encoder.mutate(mutation_rate = mutation_rate)
     
     def get_text_encoder(self):
         return self.text_encoder

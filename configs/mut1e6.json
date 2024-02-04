@@ -1,0 +1,42 @@
+{
+    "expt_name": "mutation1e6",
+    "log_dir":"mutation",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "epochs_decay" : 1000,
+    "batch_size_add" : 0,
+  
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "mlp_layers": 2,
+    "use_transformers_conv": true,
+    "temperature": 0.50,
+    "pool": "max",
+
+    "model_name": "allenai/scibert_scivocab_uncased",
+    "num_layers_to_freeze" : 10,
+    "VQ": false,
+
+    "mutation": true,
+    "mutation_epochs" : 10,
+    "mutation_rate" : 1e-06,
+
+    "loss" : "triplet and contrastive",
+    "lambda_param" : 0.1,
+    "margin_delta" : 0.9,
+    "lambda_contra": 0.0,
+  
+    "nb_epochs": 200,
+    "batch_size": 90,
+    "print_every": 100,
+  
+    "learning_rate": 1e-05,
+    "weight_decay": 1.01,
+    "beta1" : 0.92,
+    "beta2" : 0.999,
+  
+    "load_model_path": "fine_tune02.pt",
+    "save_path": "mutation"
+  }

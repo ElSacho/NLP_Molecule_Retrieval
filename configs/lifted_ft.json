@@ -1,0 +1,38 @@
+{
+    "expt_name": "lifted_ft",
+    "log_dir":"new_loss_ft",
+    "model_path": "models/oneHead_LinearNLP.py",
+
+    "epochs_decay" : 8,
+    "batch_size_add" : 0,
+  
+    "num_node_features": 300,
+    "nout": 300,
+    "nhid": 300,
+    "graph_hidden_channels": 300,
+    "mlp_layers": 2,
+    "use_transformers_conv": true,
+    "temperature": 0.0,
+    "pool": "max",
+
+    "model_name": "allenai/scibert_scivocab_uncased",
+    "num_layers_to_freeze" : 11,
+    "VQ": false,
+
+    "loss" : "lifted_structured_loss",
+    "lambda_param" : 0.1,
+    "margin_delta" : 0.9,
+    "lambda_contra": 1.0,
+  
+    "nb_epochs": 200,
+    "batch_size": 110,
+    "print_every": 30,
+  
+    "learning_rate": 1e-05,
+    "weight_decay": 1.01,
+    "beta1" : 0.92,
+    "beta2" : 0.999,
+  
+    "load_model_path": "lifted.pt",
+    "save_path": "lifted.pt"
+  }

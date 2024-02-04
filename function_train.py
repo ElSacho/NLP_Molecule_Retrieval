@@ -22,7 +22,7 @@ import sys
 from models.oneHead_LinearNLP import Model
 
 # from models.disciminator import Discriminator
-from losses import wgan_gp_loss, triplet_loss_sim, contrastive_loss, cosine_similarity_loss
+from losses import wgan_gp_loss, triplet_loss_sim, contrastive_loss, cosine_similarity_loss,lifted_structured_loss
 from torchvision import datasets, transforms
 
 import json
@@ -50,6 +50,9 @@ def train_conf(config_path, best_lraps):
     
     test_cids_dataset = GraphDataset(root='../data/', gt=gt, split='test_cids')
     test_text_dataset = TextDataset(file_path='../data/test_text.txt', tokenizer=tokenizer)
+    
+    val_cids_dataset = GraphDataset(root='../data/', gt=gt, split='val_cids')
+    val_text_dataset = TextDataset(file_path='../data/val_text.txt', tokenizer=tokenizer)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -62,10 +65,14 @@ def train_conf(config_path, best_lraps):
     if parameters['model_name'] == "allenai/scibert_scivocab_uncased":
         val_loader = DataLoader(val_dataset, batch_size=32, shuffle=True)
         test_loader = DataLoader(test_cids_dataset, batch_size=32, shuffle=False)
+        val_csv_loader = DataLoader(val_cids_dataset, batch_size=32, shuffle=False)
+        val_text_loader = TorchDataLoader(val_text_dataset, batch_size=32, shuffle=False)
         test_text_loader = TorchDataLoader(test_text_dataset, batch_size=32, shuffle=False)
     else:
         val_loader = DataLoader(val_dataset, batch_size=100, shuffle=True)
         test_loader = DataLoader(test_cids_dataset, batch_size=100, shuffle=False)
+        val_csv_loader = DataLoader(val_cids_dataset, batch_size=100, shuffle=False)
+        val_text_loader = TorchDataLoader(val_text_dataset, batch_size=100, shuffle=False)
         test_text_loader = TorchDataLoader(test_text_dataset, batch_size=100, shuffle=False)
     
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -121,11 +128,14 @@ def train_conf(config_path, best_lraps):
     print("==========================================================", end='\n\n')
     print('Start training')
 
-    best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, test_loader, test_text_loader, printEvery = parameters.get("print_every", 1))
+
+
+
+    best_lraps = train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, test_loader, test_text_loader, val_csv_loader, val_text_loader, printEvery = parameters.get("print_every", 1))
 
     return best_lraps
 
-def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, test_loader, test_text_loader, printEvery = -1):
+def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, val_dataset, parameters, best_lraps, train_dataset, test_loader, test_text_loader, val_csv_loader, val_text_loader, printEvery = -1):
     log_dir = parameters['log_dir']
     expt_name = parameters['expt_name']
     timestamp = time.strftime("%Y-%m-%d--%H%M")
@@ -141,12 +151,32 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
 
     best_validation_loss = 1_000_000
     lraps = 0
+    use_mutation = parameters.get("mutation", False)
+    mutate_cmt = 0
     
     writer.add_hparams(hparam_dict=parameters, metric_dict={})
     cmt = 1
         
     for epoch in range(nb_epochs):
         print('-----EPOCH{}-----'.format(epoch+1))
+        if use_mutation:
+            if epoch % parameters["mutation_epochs"] == 0:
+                if epoch >1:
+                    try:
+                        csv_name = parameters['expt_name'] + str(mutate_cmt)
+                        make_csv_online(model, test_loader, test_text_loader, device, name=csv_name)
+                    except Exception as e:
+                        print('Could not generate the csv file because of the error :', e)
+                mutate_cmt += 1
+                print("mutation with the mutation rate : ", parameters["mutation_rate"])
+                model.mutate(parameters["mutation_rate"])
+                try:
+                    before_mutate_lraps = calculate_val_lraps(model, val_dataset, val_loader, device)
+                    print("The LRAPS before mutation is : ", before_mutate_lraps)
+                except Exception as e:
+                    torch.cuda.empty_cache()
+                    print('An error occurred during LRAPS calculation:', e)
+                parameters["mutation_rate"] -= 1e-7
         model.train()
         count_iter = 0
         for batch in train_loader:
@@ -181,6 +211,8 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
                     current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta']) * t + (1-t) * parameters['lambda_contra'] * parameters['lambda_param'] * contrastive_loss(x_graph, x_text)
                 elif parameters["loss"] == "cosin":
                     current_loss = cosine_similarity_loss(x_graph, x_text)
+                elif  parameters["loss"] == "lifted_structured_loss":
+                    current_loss = lifted_structured_loss(x_graph, x_text, parameters['margin_delta'])
                 else:
                     current_loss = contrastive_loss(x_graph, x_text)
                 if parameters['VQ']:
@@ -231,6 +263,8 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
                     current_loss = triplet_loss_sim(x_graph, x_text, parameters['margin_delta']) * t + (1-t) * parameters['lambda_contra'] * parameters['lambda_param'] * contrastive_loss(x_graph, x_text)
                 elif parameters["loss"] == "cosin":
                     current_loss = cosine_similarity_loss(x_graph, x_text)
+                elif  parameters["loss"] == "lifted_structured_loss":
+                    current_loss = lifted_structured_loss(x_graph, x_text, parameters['margin_delta'])
                 else:
                     current_loss = contrastive_loss(x_graph, x_text)
                 if parameters['VQ']:
@@ -254,6 +288,8 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
         if best_lraps==lraps:
             print('lraps improoved saving checkpoint...')
             save_path = parameters.get("save_path", "model_checkpoint.pt")
+            # if use_mutation :
+            #     save_path += str(mutate_cmt)
             save_path = os.path.join('pt', save_path)
             print('-----EPOCH'+str(epoch+1)+'----- done.  Validation improved loss: ', str(val_loss/len(val_loader)), 'and LRAPS :', lraps, "time : ", time2 - time1)
             torch.save({
@@ -264,7 +300,11 @@ def train_after_loading(model, optimizer, nb_epochs, train_loader, val_loader, v
             'loss': loss,
             }, save_path)
             try:
-                make_csv_online(model, test_loader, test_text_loader, device, name=parameters['expt_name'])
+                csv_name = parameters['expt_name']
+                if use_mutation:
+                    csv_name += str(mutate_cmt)
+                make_csv_online(model, test_loader, test_text_loader, device, name=csv_name)
+                make_csv_online(model, val_csv_loader, val_text_loader, device, name='val_'+csv_name)
             except Exception as e:
                 print('Could not generate the csv file because of the error :', e)
         else :
