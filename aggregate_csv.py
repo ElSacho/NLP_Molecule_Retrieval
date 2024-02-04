@@ -194,7 +194,7 @@ def binary_search_sum(file1, file2, iteration, best_LRAPS, lraps_file1 = None, m
 
 def calculate_LRAPS(file_path):
     chemin_predictions = file_path
-    chemin_vrais_labels = 'true_labels.csv'
+    chemin_vrais_labels = 'true_labels.csv' # A np.eye matrix
     
     # Charger les données
     predictions = charger_csv(chemin_predictions)
@@ -256,8 +256,7 @@ def weighted_sum(file1, file2, t, best_LRAPS):
                 
     return lraps
 
-# sum_csv_with_rank_adjustment('rank.csv')
-folder_paths = ['NLP_Molecule_Retrieval/aggr/losses']
+folder_paths = ['aggr/losses']
 
 file_paths = []
 for folder_path in folder_paths:
@@ -266,35 +265,7 @@ for folder_path in folder_paths:
             file_path = os.path.join(folder_path, file)
             file_paths.append(file_path)
     
-# file_paths = ["moyenne_distil_sci.csv", "moyenne.csv"]
-
-
-# total_binary_search(file_paths)
-file_paths = ["sum_after_ft_pool.csv", "sum_before_ft.csv"]
-print(file_paths)
-# sum_csv(file_paths)
+sum_csv(file_paths)
+# sum_csv_with_rank_adjustment('rank.csv')
 calculate_LRAPS("sum.csv")
 
-# Exemple d'utilisation
-# import os
-
-# folder_paths = [ 'NLP_Molecule_Retrieval/submissions', 'NLP_Molecule_Retrieval/csv_files' ]
-# # folder_paths = ['NLP_Molecule_Retrieval/submissions']
-# folder_paths = ['NLP_Molecule_Retrieval/more_0_88']
-
-# file_paths = []
-# for folder_path in folder_paths:
-#     for file in os.listdir(folder_path):
-#         if not file.startswith('.') and file!="NLP_Molecule_Retrieval/csv_files/.DS_Store":
-#             file_path = os.path.join(folder_path, file)
-#             file_paths.append(file_path)
-# # file_paths = ["moyenne_distil_sci.csv", "moyenne.csv"]
-# print(file_paths)
-# file_paths.append("sum02.csv")
-# file_paths.append("sum03.csv")
-# file_paths = ["sum02.csv", "sum03.csv"]
-# file_paths = ["sum_adjusted_by_rank.csv", "sum_adjusted_by_rank1.csv"]
-# # file_paths.append("sum01.csv")
-# sum_csv(file_paths)
-
-# # file_paths = ["NLP_Molecule_Retrieval/submissions/cheb2.csv","NLP_Molecule_Retrieval/submissions/cheb3.csv","NLP_Molecule_Retrieval/submissions/cheb6.csv","NLP_Molecule_Retrieval/submissions/cheb8.csv","NLP_Molecule_Retrieval/submissions5/temp_0_07.csv","NLP_Molecule_Retrieval/submissions5/sage.csv","NLP_Molecule_Retrieval/submissions5/LR_8e05.csv","NLP_Molecule_Retrieval/submissions5/decay20.csv","NLP_Molecule_Retrieval/submissions5/cheb4.csv","NLP_Molecule_Retrieval/csv_files/distil_both0_87.csv", "NLP_Molecule_Retrieval/submitted/distil_both_hyper_LR_0_8834.csv"]
