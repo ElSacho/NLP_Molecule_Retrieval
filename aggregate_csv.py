@@ -222,6 +222,33 @@ def charger_csv(chemin_fichier):
         next(lecteur, None)  # Ignorer les en-têtes
         return np.array([list(map(float, row[1:])) for row in lecteur])
 
+def adaboost_classifiers(file_paths, true_labels_path, iterations=10):
+    n_classifiers = len(file_paths)
+    classifier_weights = np.ones(n_classifiers)  # Initialize weights
+    vrais_labels = np.array(charger_csv(true_labels_path))
+
+    for iteration in range(iterations):
+        # Compute weighted ensemble prediction
+        ensemble_prediction = np.zeros_like(vrais_labels, dtype=float)
+        for file_index, file_path in enumerate(file_paths):
+            classifier_output = np.array(charger_csv(file_path))
+            ensemble_prediction += classifier_weights[file_index] * classifier_output
+
+        # Calculate LRAPS for ensemble
+        ensemble_score = label_ranking_average_precision_score(vrais_labels, ensemble_prediction)
+        print(f"Iteration {iteration}, Ensemble LRAPS: {ensemble_score}")
+
+        # Calculate performance and update weights
+        for file_index, file_path in enumerate(file_paths):
+            classifier_output = np.array(charger_csv(file_path))
+            classifier_score = label_ranking_average_precision_score(vrais_labels, classifier_output)
+            error = 1 - classifier_score
+            if error < 0.5:
+                classifier_weights[file_index] *= (error / (1 - error))
+
+        # Normalize weights
+        classifier_weights /= classifier_weights.sum()
+
 def weighted_sum(file1, file2, t, best_LRAPS):
     # Initialiser une liste pour stocker toutes les données ajustées et les ID
     somme_data = []
@@ -256,7 +283,7 @@ def weighted_sum(file1, file2, t, best_LRAPS):
                 
     return lraps
 
-folder_paths = ['aggr/losses']
+folder_paths = ['NLP_Molecule_Retrieval/csv/csv_files']
 
 file_paths = []
 for folder_path in folder_paths:
@@ -265,6 +292,7 @@ for folder_path in folder_paths:
             file_path = os.path.join(folder_path, file)
             file_paths.append(file_path)
     
+
 sum_csv(file_paths)
 # sum_csv_with_rank_adjustment('rank.csv')
 calculate_LRAPS("sum.csv")
