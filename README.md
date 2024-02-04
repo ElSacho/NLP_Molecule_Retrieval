@@ -15,10 +15,6 @@ The challenge of accurately matching molecular structures with textual descripti
 ## Getting Started
 To run the code, follow these steps:
 1. **Install Requirements:** Install the necessary requirements by running `pip install -r requirements.txt`.
-2. **Prepare the Dataset:** Separate the validation dataset similarly to the test dataset.
+2. **Prepare the Dataset:** Separate the validation dataset similarly to the test dataset (only if you want to see some features for the boosting strategy)
 3. **Configuration:** Choose a configuration file and run the model by executing `python trainer.py path_to_your_conf_file`. Make sure to set the experiment name, whether to load an existing model, and the save names for your models and CSV files in the config file.
-
-## Contribution
-For further details on each specific parameter and to access the configuration files, visit our [GitHub repository](https://github.com/ElSacho/NLP_Molecule_Retrieval). All results can be reviewed in the corresponding files within the *log* folder on GitHub, analyzed using TensorBoard.
-
-
+4. **Aggregation** You can aggregate the results you get from each file by placing the csv files in one folder, and running the aggregation function you want (in the `aggregate_csv.py` file), making sure you give the path to your csv folder as input.
